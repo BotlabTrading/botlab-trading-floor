@@ -26,7 +26,7 @@ else:
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-DEFAULTS = {"symbol": "XAUUSD", "magics": {"D1": 0, "H4": 0, "H4B": 0}, "history_days": 7, "port": 8765, "terminal_path": ""}
+DEFAULTS = {"symbol": "XAUUSD", "magics": {"D1": 0, "H4": 0, "H4B": 0}, "history_days": 7, "port": 8765, "terminal_path": "", "mt5_candles": False}
 REASONS = {0: "Manual", 1: "Móvil", 2: "Web", 3: "Experto", 4: "Stop loss", 5: "Take profit", 6: "Stop out"}
 # MetaTrader5 se usa siempre desde un único hilo; la web solo lee la última foto.
 CACHE = {"connected": False, "error": "Conectando con MetaTrader 5..."}
@@ -116,6 +116,7 @@ def closed_trades(deals):
 
 
 TRACE = True
+DEALS = {"rows": [], "at": 0.0}
 
 
 def step(msg):
@@ -138,9 +139,16 @@ def state():
     step("Leyendo posiciones y órdenes")
     positions = [p for p in (mt5.positions_get(symbol=sym) or ())]
     orders = [o for o in (mt5.orders_get(symbol=sym) or ())]
-    step("Leyendo historial")
-    now = dt.datetime.now()
-    deals = [d for d in (mt5.history_deals_get(now - dt.timedelta(days=int(CFG["history_days"])), now + dt.timedelta(days=2)) or ()) if d.symbol == sym]
+    if time.time() - DEALS["at"] > 10:  # el historial cambia poco: leerlo cada 10 s
+        step("Leyendo historial")
+        now = dt.datetime.now()
+        DEALS["rows"] = [d for d in (mt5.history_deals_get(now - dt.timedelta(days=int(CFG["history_days"])), now + dt.timedelta(days=2)) or ()) if d.symbol == sym]
+        DEALS["at"] = time.time()
+    deals = DEALS["rows"]
+    if not CFG["mt5_candles"]:
+        own_candles(int(tick.time), float(tick.bid))
+        CANDLES.update(h4=OWN["h4"], d1=OWN["d1"],
+                       error="" if len(OWN["h4"]) > 3 else "Las velas se construyen con los precios en vivo desde que arrancó el puente; el gráfico se irá llenando.")
     seen = sorted({int(x.magic) for x in positions + orders + deals if int(x.magic)})
     return {
         "connected": True,
@@ -161,7 +169,38 @@ def state():
     }
 
 
-# Las velas se piden en un proceso aparte: en algunos terminales copy_rates se queda
+# Velas propias: se construyen con los precios que lee el puente (por defecto), porque en
+# algunos terminales pedir el histórico (copy_rates) bloquea MT5 entero.
+CACHE_FILE = os.path.join(HERE, "velas_cache.json")
+OWN = {"h4": [], "d1": [], "saved": 0.0}
+try:
+    with open(CACHE_FILE, encoding="utf-8") as f:
+        _c = json.load(f)
+        if _c.get("symbol") == CFG["symbol"]:
+            OWN.update(h4=_c.get("h4", []), d1=_c.get("d1", []))
+except (OSError, ValueError):
+    pass
+
+
+def own_candles(t, price):
+    for key, span, keep in (("h4", 14400, 60), ("d1", 86400, 15)):
+        rows, start = OWN[key], t - t % span
+        if rows and rows[-1]["t"] == start:
+            c = rows[-1]
+            c["h"], c["l"], c["c"], c["v"] = max(c["h"], price), min(c["l"], price), price, c["v"] + 1
+        else:
+            rows.append({"t": start, "o": price, "h": price, "l": price, "c": price, "v": 1})
+            del rows[:-keep]
+    if time.time() - OWN["saved"] > 60:
+        OWN["saved"] = time.time()
+        try:
+            with open(CACHE_FILE, "w", encoding="utf-8") as f:
+                json.dump({"symbol": CFG["symbol"], "h4": OWN["h4"], "d1": OWN["d1"]}, f)
+        except OSError:
+            pass
+
+
+# Opcional (mt5_candles: true): las velas de MT5 se piden en un proceso aparte: en algunos terminales copy_rates se queda
 # esperando el histórico y bloquearía todo el puente.
 CANDLES = {"h4": [], "d1": [], "error": "Cargando velas..."}
 CANDLE_JOB = {"proc": None, "started": 0.0, "last": -1e9}
@@ -210,7 +249,7 @@ def worker():
     reported = None
     while True:
         try:
-            if TERMINAL is not None:
+            if TERMINAL is not None and CFG["mt5_candles"]:
                 candles_tick()
             snap = state()
         except Exception as e:  # nunca tumbar el puente por un fallo de lectura
