@@ -141,7 +141,6 @@ def state():
     step("Leyendo historial")
     now = dt.datetime.now()
     deals = [d for d in (mt5.history_deals_get(now - dt.timedelta(days=int(CFG["history_days"])), now + dt.timedelta(days=2)) or ()) if d.symbol == sym]
-    step("Leyendo velas")
     seen = sorted({int(x.magic) for x in positions + orders + deals if int(x.magic)})
     return {
         "connected": True,
@@ -150,7 +149,7 @@ def state():
                     "balance": float(acc.balance), "equity": float(acc.equity), "profit": float(acc.profit),
                     "mode": {0: "DEMO", 1: "CONCURSO", 2: "REAL"}.get(int(acc.trade_mode), "?")},
         "symbol": sym, "bid": float(tick.bid), "ask": float(tick.ask),
-        "h4": rates(sym, mt5.TIMEFRAME_H4, 40), "d1": rates(sym, mt5.TIMEFRAME_D1, 10),
+        "h4": CANDLES["h4"], "d1": CANDLES["d1"], "candles_error": CANDLES["error"],
         "magics": MAGICS, "seen_magics": seen,
         "positions": [{"ticket": int(p.ticket), "magic": int(p.magic), "engine": ENGINE_BY_MAGIC.get(int(p.magic)),
                        "dir": 1 if p.type == 0 else -1, "volume": float(p.volume), "entry": float(p.price_open),
@@ -162,11 +161,57 @@ def state():
     }
 
 
+# Las velas se piden en un proceso aparte: en algunos terminales copy_rates se queda
+# esperando el histórico y bloquearía todo el puente.
+CANDLES = {"h4": [], "d1": [], "error": "Cargando velas..."}
+CANDLE_JOB = {"proc": None, "started": 0.0, "last": -1e9}
+
+
+def candles_tick():
+    job, now = CANDLE_JOB, time.time()
+    p = job["proc"]
+    if p is None:
+        if now - job["last"] >= 30:
+            job["proc"] = subprocess.Popen([sys.executable, os.path.abspath(__file__), "--candles", TERMINAL or ""],
+                                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+            job["started"] = job["last"] = now
+        return
+    if p.poll() is None:
+        if now - job["started"] > 25:
+            p.kill()
+            job["proc"] = None
+            CANDLES["error"] = "MetaTrader 5 no devuelve las velas de este símbolo (sigo reintentando cada 30 s)."
+            print("Aviso: " + CANDLES["error"], flush=True)
+        return
+    job["proc"] = None
+    try:
+        data = json.loads(p.stdout.read() or "{}")
+        if data.get("h4"):
+            CANDLES.update(h4=data["h4"], d1=data.get("d1", []), error="")
+        else:
+            CANDLES["error"] = data.get("error") or "MetaTrader 5 no ha devuelto velas."
+    except ValueError:
+        CANDLES["error"] = "Respuesta de velas no válida."
+
+
+def candles_main(path):
+    ok = mt5.initialize(path=path, timeout=15000) if path else mt5.initialize(timeout=15000)
+    if not ok:
+        print(json.dumps({"error": f"No se pudo conectar: {mt5.last_error()}"}))
+        return
+    sym = CFG["symbol"]
+    mt5.symbol_select(sym, True)
+    print(json.dumps({"h4": rates(sym, mt5.TIMEFRAME_H4, 40), "d1": rates(sym, mt5.TIMEFRAME_D1, 10)}))
+    mt5.shutdown()
+
+
 def worker():
     global CACHE, TRACE
     reported = None
     while True:
         try:
+            if TERMINAL is not None:
+                candles_tick()
             snap = state()
         except Exception as e:  # nunca tumbar el puente por un fallo de lectura
             snap = {"connected": False, "error": f"Error leyendo MT5: {e}"}
@@ -203,6 +248,10 @@ class Handler(SimpleHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "--candles":
+    candles_main(sys.argv[2] if len(sys.argv) > 2 else "")
+    sys.exit(0)
 
 if __name__ == "__main__":
     port = int(CFG["port"])

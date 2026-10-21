@@ -1017,6 +1017,11 @@ function applyLive(d) {
   G.hist.push(G.p); if (G.hist.length > 480) G.hist.shift();
   const mk = x => ({ o: x.o, h: x.h, l: x.l, c: x.c, v: x.v });
   if (d.h4.length) { G.h4 = d.h4.slice(0, -1).map(mk); G.cur = mk(d.h4[d.h4.length - 1]); }
+  else { // sin velas de MT5: una vela con los precios vistos desde que se abrió la web
+    const c = LIVE.cur || (LIVE.cur = { o: G.p, h: G.p, l: G.p, c: G.p, v: 0 });
+    c.h = Math.max(c.h, G.p); c.l = Math.min(c.l, G.p); c.c = G.p;
+    G.h4 = []; G.cur = c; if (first) G.open = G.p;
+  }
   if (d.d1.length) { G.d1 = d.d1.slice(0, -1).map(mk); G.open = d.d1[d.d1.length - 1].o; }
   if (first) {
     S.trades = S.trades.filter(t => t.ins !== G); S.log = S.log.filter(l => l.dept !== 'gld');
@@ -1076,7 +1081,7 @@ function goldPanel() {
   }).join('');
   const L = LIVE.on ? LIVE.d : null, A = L && L.account;
   const sub = L ? `<span class="live-tag">MT5 EN VIVO</span> Cuenta ${A.login} (${A.mode}) · ${esc(A.server)} · solo lectura · operaciones de los últimos 7 días` : 'Tres motores de ruptura con las reglas de tu ficha técnica · cuenta asignada $2,000 · 1 vela H4 = 30 s de simulación';
-  const warn = (LIVE.err ? `<div class="warn">${esc(LIVE.err)}</div>` : '') + (L && !Object.keys(L.magics).length ? `<div class="warn">Faltan los magic numbers de los motores en <b>bridge/config.json</b>.${L.seen_magics.length ? ` En tu cuenta aparecen: ${L.seen_magics.join(', ')}.` : ''}</div>` : '');
+  const warn = (LIVE.err ? `<div class="warn">${esc(LIVE.err)}</div>` : '') + (L && L.candles_error ? `<div class="warn">Velas: ${esc(L.candles_error)}</div>` : '') + (L && !Object.keys(L.magics).length ? `<div class="warn">Faltan los magic numbers de los motores en <b>bridge/config.json</b>.${L.seen_magics.length ? ` En tu cuenta aparecen: ${L.seen_magics.join(', ')}.` : ''}</div>` : '');
   const stats = L ? [['Balance MT5', usd(A.balance), ''], ['Equity', usd(A.equity), ''], ['Flotante', usd(A.profit, true), A.profit >= 0 ? 'up' : 'down'], ['Operaciones', tot, ''], ['Acierto', tot ? Math.round(wins / tot * 100) + '%' : '—', '']]
     : [['Cuenta Gold Pro', usd(eqG), ''], ['P&amp;L', usd(eqG - GOLD_ALLOC, true), eqG >= GOLD_ALLOC ? 'up' : 'down'], ['Operaciones', tot, ''], ['Acierto', tot ? Math.round(wins / tot * 100) + '%' : '—', ''], ['Spread', Math.round(G.spread * 100) + ' pts', '']];
   return `<div class="ins-h"><div><b>Breakout Gold Pro · ${L ? esc(L.symbol) : 'XAUUSD'}</b><small>${sub}</small></div>
