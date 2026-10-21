@@ -1,6 +1,6 @@
 {
-  "symbol": "XAUUSD",
-  "magics": { "D1": 0, "H4": 0, "H4B": 0 },
+  "symbol": "XAUUSD+",
+  "magics": { "D1": 963963963, "H4": 852852852, "H4B": 741741741 },
   "history_days": 7,
   "port": 8765,
   "terminal_path": ""
