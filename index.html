@@ -141,6 +141,16 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:1000/620;max-width:100%
 .side-pill.flat{background:var(--panel2);color:var(--muted)}
 
 .tbl-card{padding:14px;min-width:0}
+.gold{padding:14px;display:flex;flex-direction:column;gap:12px;margin-bottom:12px;border-color:rgba(211,163,50,.45)}
+.gold .ins-h b{color:#e2b84a}
+.gold-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.gold-stats div{background:var(--panel2);border-radius:8px;padding:8px 10px;min-width:0}
+.gold-stats .lab{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.gold-stats b{font-size:15px}
+@media (max-width:720px){.gold-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.gold-chart{display:block;width:100%;min-width:560px;height:auto}
+.gold-chart text{font-family:var(--f-mono)}
+table.eng{min-width:600px}
 .tbl-card h3{margin:0 0 10px;font-size:14px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .scroll{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:12px;min-width:560px}
@@ -229,7 +239,7 @@ th.n,td.n{text-align:right}
       <div class="card floor">
         <div class="floor-h">
           <h2><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="2" fill="#a8c46c"/><path d="M4.5 4.5a5 5 0 0 0 0 7M11.5 4.5a5 5 0 0 1 0 7" stroke="#a8c46c" stroke-width="1.4" stroke-linecap="round"/></svg>En el floor</h2>
-          <span class="count">24</span>
+          <span class="count" id="agentCount">27</span>
         </div>
         <div class="seg" role="tablist" aria-label="Floor">
           <button role="tab" data-sub="sala" aria-selected="false">Sala</button>
@@ -250,7 +260,7 @@ th.n,td.n{text-align:right}
           <div class="list" id="agentList"></div>
         </div>
         <div id="subDeptos">
-          <div class="eyebrow" style="margin-bottom:8px">Cinco perspectivas conectadas</div>
+          <div class="eyebrow" style="margin-bottom:8px">Seis departamentos conectados</div>
           <div class="list" id="deptList"></div>
         </div>
         <p class="note">Los agentes representan procesos simulados. Los modelos de IA se incorporarán en una fase posterior.</p>
@@ -265,7 +275,7 @@ th.n,td.n{text-align:right}
             <span class="muted" style="font-size:12px">Toca un agente o un departamento para seguirlo</span>
           </div>
           <div class="canvas-wrap">
-            <canvas id="cv" width="1000" height="620" aria-label="Oficina isométrica con 24 agentes simulados trabajando por departamentos"></canvas>
+            <canvas id="cv" width="1000" height="620" aria-label="Oficina isométrica con 27 agentes simulados trabajando por departamentos"></canvas>
             <div class="chip" id="chip" hidden></div>
           </div>
           <div class="legend" id="legend"></div>
@@ -273,6 +283,7 @@ th.n,td.n{text-align:right}
       </section>
 
       <section class="view" id="v-analisis" hidden>
+        <div class="card gold" id="goldCard"></div>
         <div class="grid2" id="insCards"></div>
       </section>
 
@@ -311,6 +322,7 @@ const DEPTS = {
   rsk: { name: 'Gestión de riesgo', short: 'Riesgo', desc: 'Supervisión de exposición y límites.', color: '#de5f62', floor: ['#ebc9cb', '#e5c0c3'] },
   qnt: { name: 'Investigación cuantitativa', short: 'Quant', desc: 'Calidad de datos e hipótesis.', color: '#9480dc', floor: ['#dbd4f0', '#d3cbea'] },
   com: { name: 'Comité de trading', short: 'Comité', desc: 'Revisión conjunta y diario de decisiones.', color: '#4fb2d2', floor: ['#cfe5ec', '#c6dee6'] },
+  gld: { name: 'Breakout Gold Pro', short: 'Gold Pro', desc: 'Robot de rupturas en XAUUSD con tres motores: D1, H4 y H4-B.', color: '#d3a332', floor: ['#f0e1a6', '#e9d895'] },
 };
 const SYS = { name: 'Sistema', color: '#8a9488' };
 
@@ -343,6 +355,7 @@ const GX = 18, GY = 13;
 const desks = [], chairs = [], agents = [];
 const NAMES = {
   tec: ['Lucía', 'Mateo', 'Sofía', 'Hugo', 'Valeria', 'Daniel', 'Martina', 'Pablo', 'Elena', 'Álvaro', 'Carmen', 'Diego'],
+  gld: ['Aurora', 'Álex', 'Nerea'],
   mac: ['Inés', 'Javier', 'Noa'], rsk: ['Marta', 'Sergio', 'Clara'], qnt: ['Iván', 'Paula', 'Rubén'], com: ['Adriana', 'Tomás', 'Laura'],
 };
 const ROLES = {
@@ -351,6 +364,7 @@ const ROLES = {
   rsk: ['Límites de exposición', 'Drawdown', 'Ejecución y stops'],
   qnt: ['Calidad de datos', 'Reversión a la media', 'Backtesting'],
   com: ['Presidencia', 'Secretaría · diario', 'Ejecución'],
+  gld: ['Motor D1', 'Motor H4', 'Motor H4-B'],
 };
 const SKIN = ['#f1c7a3', '#d9a27a', '#b9805a', '#8d5a3b', '#f3d2b5', '#c98f68'];
 const HAIR = ['#2b2420', '#5a3b26', '#1c1c1c', '#8a5a2b', '#3b2a22', '#c79a5b'];
@@ -385,6 +399,11 @@ function buildFloor() {
     });
   });
   [40, 90, 140].forEach((a, k) => { const home = seatAt(a); chairs.push(home); addAgent('com', k, home, 'MNQ'); });
+  [1, 4, 7].forEach((x, k) => {
+    desks.push({ x, y: 0.5, w: 2, d: 0.8, mons: 2, sym: 'XAUUSD' });
+    const home = { x: x + 1, y: 1.75 }; chairs.push(home); addAgent('gld', k, home, 'XAUUSD');
+    agents[agents.length - 1].engine = ENGINES[k].id;
+  });
 }
 
 // ---------- simulation state
@@ -394,6 +413,7 @@ function newSession() {
   S = { simT: 0, nextTick: 0, nextMeeting: 8, realized: 0, fees: 0, killed: false, paused: S ? S.paused : false, speed: S ? S.speed : 1,
     riskOn: rnd(-0.3, 0.4), nextEvent: null, meeting: null, trades: [], log: [], logSeq: 0, pos: {}, peak: START, decisions: 0, orders: 0, warm: true, lastDecision: '' };
   buildFloor();
+  newGold();
   scheduleEvent();
   log('sys', 'Sesión DEMO iniciada · cuenta DEMO-001 con $100,000.00 virtuales');
   // warm-up: 4 simulated minutes so the floor opens mid-session
@@ -414,12 +434,122 @@ function say(a, text, dur = 2.6) { if (!S.warm && a) a.bubble = { text, until: S
 const agentsOf = d => agents.filter(a => a.dept === d);
 
 function unrealOf(ins) { const p = S.pos[ins.sym]; return p ? (ins.p - p.avg) * p.qty * ins.mult : 0; }
-function unreal() { return INS.reduce((s, i) => s + unrealOf(i), 0); }
-function equity() { return START + S.realized - S.fees + unreal(); }
-function notional() { return INS.reduce((s, i) => s + (S.pos[i.sym] ? Math.abs(S.pos[i.sym].qty) * i.p * i.mult : 0), 0); }
+function unreal() { return INS.reduce((s, i) => s + unrealOf(i), 0) + goldUnreal(); }
+function balance() { return START + S.realized - S.fees + G.realized; }
+function equity() { return balance() + unreal(); }
+function notional() { return INS.reduce((s, i) => s + (S.pos[i.sym] ? Math.abs(S.pos[i.sym].qty) * i.p * i.mult : 0), 0) + G.eng.reduce((s, e) => s + (e.pos ? e.pos.lots * OZ * G.p : 0), 0); }
+const getIns = sym => sym === 'XAUUSD' ? G : INS.find(i => i.sym === sym);
+
+// ---------- Breakout Gold Pro (XAUUSD). Reglas de la ficha técnica; tiempo comprimido: 1 vela H4 = 30 s, 1 día = 6 velas H4.
+const GOLD_ALLOC = 2000, H4_TICKS = 60, H4_PER_D1 = 6, OZ = 100;
+const ENGINES = [
+  { id: 'D1', name: 'Motor D1', tf: 'D1', tp: 20, sl: 10, trail: true, volF: false, persist: false, lotPer: 300 },
+  { id: 'H4', name: 'Motor H4', tf: 'H4', tp: 20, sl: 10, trail: true, volF: true, persist: true, lotPer: 200 },
+  { id: 'H4B', name: 'Motor H4-B', tf: 'H4', tp: 3, sl: 10, trail: false, volF: true, persist: true, lotPer: 150 },
+];
+let G;
+const r2 = v => Math.round(v * 100) / 100;
+const fmtG = v => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const newCandle = p => ({ o: p, h: p, l: p, c: p, v: 0, vm: Math.exp(gauss() * 0.55) });
+const goldAgent = e => agents.find(a => a.dept === 'gld' && a.engine === e.id);
+const goldUnreal = () => G ? G.eng.reduce((s, e) => s + (e.pos ? (G.p - e.pos.entry) * e.pos.dir * e.pos.lots * OZ : 0), 0) : 0;
+const goldLots = e => Math.max(0.01, Math.floor((GOLD_ALLOC + G.realized) / e.lotPer) / 100);
+function newGold() {
+  G = { sym: 'XAUUSD', name: 'Oro al contado', dec: 2, tick: 0.01, p: 2652.4, hist: [], open: 0, spread: 0.25, trend: 0, tec: 0, qnt: 0, mac: 0, z: 0,
+    h4: [], d1: [], cur: null, d1cur: null, n: 0, h4Count: 0, realized: 0,
+    eng: ENGINES.map(e => ({ ...e, pend: null, pos: null, savedLow: null, wins: 0, losses: 0, pnl: 0, note: 'Esperando la próxima vela', volRatio: null })) };
+  G.cur = newCandle(G.p);
+  for (let k = 0; k < 24 * H4_TICKS; k++) goldStep(true); // 4 días de historia previa
+  G.open = G.p;
+}
+function goldStep(history) {
+  if (Math.random() < 0.01) G.trend = rnd(-1, 1);
+  G.trend = clamp(G.trend + gauss() * 0.05);
+  const prev = G.p;
+  G.p = Math.max(1, r2(G.p + 0.6 * gauss() + G.trend * 0.06 - (S ? S.riskOn : 0) * 0.03));
+  G.spread = r2(rnd(0.18, 0.34));
+  G.hist.push(G.p); if (G.hist.length > 480) G.hist.shift();
+  const c = G.cur; c.h = Math.max(c.h, G.p); c.l = Math.min(c.l, G.p); c.c = G.p;
+  c.v += c.vm * (0.6 + Math.abs(G.p - prev) * 1.2) * rnd(0.7, 1.3);
+  if (!history) goldManage();
+  if (++G.n % H4_TICKS === 0) {
+    G.h4.push(c); if (G.h4.length > 60) G.h4.shift();
+    const d = G.d1cur;
+    G.d1cur = d ? { o: d.o, h: Math.max(d.h, c.h), l: Math.min(d.l, c.l), c: c.c } : { o: c.o, h: c.h, l: c.l, c: c.c };
+    let newDay = false;
+    if (++G.h4Count % H4_PER_D1 === 0) { G.d1.push(G.d1cur); if (G.d1.length > 30) G.d1.shift(); G.d1cur = null; newDay = true; }
+    G.cur = newCandle(G.p);
+    if (!history) goldPlace(newDay);
+  }
+}
+function goldOpen(e, dir, level) {
+  const lots = goldLots(e), a = goldAgent(e);
+  e.pos = { dir, lots, entry: level, sl: r2(level - dir * e.sl), tp: r2(level + dir * e.tp), t: S.simT, trailing: false };
+  e.pend = null; e.note = '';
+  log('gld', `${a.name} · ${e.name}: ${dir > 0 ? 'compra' : 'venta'} de ${lots.toFixed(2)} lotes XAUUSD @ ${fmtG(level)} (SL ${fmtG(e.pos.sl)} · TP ${fmtG(e.pos.tp)})`);
+  say(a, `${dir > 0 ? 'BUY' : 'SELL'} ${lots.toFixed(2)} @ ${fmtG(level)}`, 3.2);
+}
+function goldClose(e, price, reason) {
+  const P = e.pos, a = goldAgent(e), pnl = (price - P.entry) * P.dir * P.lots * OZ;
+  G.realized += pnl; e.pnl += pnl; pnl >= 0 ? e.wins++ : e.losses++;
+  S.trades.unshift({ t: S.simT, sym: 'XAUUSD · ' + e.id, side: P.dir > 0 ? 'Largo' : 'Corto', qty: P.lots.toFixed(2) + ' lt', entry: P.entry, exit: price, pnl, reason: `${e.name} · ${reason}`, ins: G });
+  if (S.trades.length > 200) S.trades.pop();
+  e.pos = null; e.note = 'Esperando la próxima vela';
+  log('gld', `${a.name} · ${e.name}: ${reason.toLowerCase()} en XAUUSD @ ${fmtG(price)}, resultado ${usd(pnl, true)}`);
+  say(a, `${reason} ${usd(pnl, true)}`, 3.2);
+}
+function goldManage() {
+  for (const e of G.eng) {
+    if (e.pos) {
+      const P = e.pos, prof = (G.p - P.entry) * P.dir;
+      if (e.trail && prof >= 0.40) { // trailing: se activa a +40 puntos y sigue a 30 puntos
+        const ns = r2(G.p - P.dir * 0.30);
+        if ((ns - P.sl) * P.dir > 0) { if (!P.trailing) { P.trailing = true; say(goldAgent(e), 'Trailing activo'); } P.sl = ns; }
+      }
+      const hitTP = (G.p - P.tp) * P.dir >= 0, hitSL = (G.p - P.sl) * P.dir <= 0;
+      if (hitTP) goldClose(e, P.tp, 'Take profit');
+      else if (hitSL) goldClose(e, P.sl, P.trailing ? 'Trailing stop' : 'Stop loss');
+    } else if (e.pend) {
+      if (e.pend.buy != null && G.p >= e.pend.buy) goldOpen(e, 1, e.pend.buy);
+      else if (e.pend.sell != null && G.p <= e.pend.sell) goldOpen(e, -1, e.pend.sell);
+    }
+  }
+}
+function goldPlace(newDay) {
+  if (newDay) G.eng.forEach(e => { e.pend = null; }); // borrado de pendientes al cierre del día
+  const blocked = S.killed ? 'Kill switch activo' : (equity() - START) / START < -0.02 ? 'Veto de riesgo (−2% sesión)' : '';
+  for (const e of G.eng) {
+    if (e.tf === 'D1' && !newDay) continue;
+    e.pend = null;
+    if (e.pos) continue;
+    if (blocked) { e.note = blocked; continue; }
+    const P = e.tf === 'D1' ? G.d1[G.d1.length - 1] : G.h4[G.h4.length - 1], a = goldAgent(e);
+    if (!P) continue;
+    if (e.volF) {
+      const base = G.h4.slice(-17, -1), avg = base.reduce((s, c) => s + c.v, 0) / base.length;
+      e.volRatio = P.v / avg;
+      if (e.volRatio < 1.5) { e.note = `Sin volumen (${e.volRatio.toFixed(2)}× la media)`; continue; }
+    }
+    const buf = 0.3 * G.spread;
+    let buy = r2(P.h + buf), sell = null;
+    if (G.p >= buy) buy = null; // nivel ya roto
+    if (P.c < P.o) { // solo vende si la vela anterior fue bajista
+      let low = P.l;
+      if (e.persist && e.savedLow != null && P.l > e.savedLow) low = e.savedLow;
+      e.savedLow = low;
+      sell = r2(low - buf);
+      if (G.p <= sell) sell = null;
+    }
+    if (buy == null && sell == null) { e.note = 'Sin niveles válidos en esta vela'; continue; }
+    e.pend = { buy, sell }; e.note = '';
+    log('gld', `${a.name} · ${e.name}: ${[buy != null ? `buy stop ${fmtG(buy)}` : '', sell != null ? `sell stop ${fmtG(sell)}` : ''].filter(Boolean).join(' · ')}${e.volF ? ` (volumen ${e.volRatio.toFixed(2)}×)` : ''}`);
+    say(a, buy != null ? `Buy stop ${fmtG(buy)}` : `Sell stop ${fmtG(sell)}`, 3);
+  }
+}
 
 function tick() {
   S.riskOn = clamp(S.riskOn + gauss() * 0.02 - S.riskOn * 0.004);
+  goldStep(false);
   for (const ins of INS) {
     if (Math.random() < 0.01) ins.trend = rnd(-1, 1);
     ins.trend = clamp(ins.trend + gauss() * 0.05);
@@ -469,8 +599,10 @@ function tick() {
 function chatter() {
   const a = pick(agents.filter(x => x.state === 'seat' && !(x.bubble && x.bubble.until > S.simT)));
   if (!a) return;
-  const ins = INS.find(i => i.sym === a.sym);
+  const ins = getIns(a.sym);
+  const ge = a.dept === 'gld' ? G.eng.find(e => e.id === a.engine) : null;
   const lines = {
+    gld: ge ? [`XAUUSD ${fmtG(G.p)}`, `Spread ${Math.round(G.spread * 100)} pts`, ge.pos ? `${ge.pos.dir > 0 ? 'Largo' : 'Corto'} ${usd((G.p - ge.pos.entry) * ge.pos.dir * ge.pos.lots * OZ, true)}` : ge.pend ? 'Órdenes listas' : 'Esperando vela'] : [],
     tec: [`${ins.sym} ${ins.tec > 0 ? '▲' : '▼'} ${sgn(ins.tec)}`, `Volumen ${ins.sym} +${Math.round(rnd(4, 38))}%`, `Soporte ${px(ins, Math.min(...ins.hist.slice(-80)))}`, `Resistencia ${px(ins, Math.max(...ins.hist.slice(-80)))}`],
     mac: [`Régimen ${sgn(S.riskOn)}`, `Próximo: ${S.nextEvent.name}`, `${ins.sym} sesgo ${sgn(ins.mac)}`],
     rsk: [`Exposición ${Math.round(notional() / equity() * 100)}%`, `DD ${pct((equity() - S.peak) / S.peak, 2)}`, `Límites OK`],
@@ -588,7 +720,7 @@ function box(x, y, w, d, h, top, left, right, z0 = 0) {
   const a2 = iso(x, y + d, z0 + h), b2 = iso(x + w, y + d, z0 + h), c2 = iso(x + w, y, z0 + h), d2 = iso(x, y, z0 + h);
   poly([a, b, b2, a2], left); poly([b, c, c2, b2], right); poly([d2, c2, b2, a2], top);
 }
-function zoneAt(cx, cy) { if (cx < 10) return 'tec'; if (cy < 5) return 'mac'; if (cy < 10) return cx < 14 ? 'rsk' : 'qnt'; return 'com'; }
+function zoneAt(cx, cy) { if (cx < 10) return cy < 3 ? 'gld' : 'tec'; if (cy < 5) return 'mac'; if (cy < 10) return cx < 14 ? 'rsk' : 'qnt'; return 'com'; }
 
 function drawWalls(t) {
   const WH = 96;
@@ -612,7 +744,7 @@ function drawWalls(t) {
   ctx.restore();
   // stripes
   ctx.save(); ctx.transform(1, 0.5, 0, 1, ...iso(9.6, 0, 86));
-  ['#6fae5a', '#e0a03f', '#de5f62', '#9480dc', '#4fb2d2'].forEach((c, k) => { ctx.fillStyle = c; ctx.fillRect(k * 9, 0, 5, 66); });
+  ['#6fae5a', '#e0a03f', '#de5f62', '#9480dc', '#4fb2d2', '#d3a332'].forEach((c, k) => { ctx.fillStyle = c; ctx.fillRect(k * 9, 0, 5, 66); });
   ctx.restore();
   // ticker on the left wall
   const [tx, ty] = iso(0, 12.4, 64), tw = 9.6 * 32;
@@ -634,7 +766,7 @@ function drawFloor() {
     const z = DEPTS[zoneAt(x, y)].floor;
     poly([iso(x, y), iso(x + 1, y), iso(x + 1, y + 1), iso(x, y + 1)], z[(x + y) & 1]);
   }
-  const labels = [['tec', 0.7, 2.25, 'ANÁLISIS TÉCNICO'], ['mac', 10.4, 0.25, 'MACROECONOMÍA'], ['rsk', 10.3, 5.05, 'RIESGO'], ['qnt', 14.3, 5.05, 'QUANT'], ['com', 10.4, 10.2, 'COMITÉ']];
+  const labels = [['gld', 0.35, 2.25, 'BREAKOUT GOLD PRO'], ['tec', 0.35, 12.3, 'ANÁLISIS TÉCNICO'], ['mac', 10.4, 0.25, 'MACROECONOMÍA'], ['rsk', 10.3, 5.05, 'RIESGO'], ['qnt', 14.3, 5.05, 'QUANT'], ['com', 10.4, 10.2, 'COMITÉ']];
   labels.forEach(([d, x, y, txt]) => {
     ctx.save(); ctx.transform(1, 0.5, -1, 0.5, ...iso(x, y));
     const on = sel && sel.type === 'dept' && sel.id === d;
@@ -644,6 +776,7 @@ function drawFloor() {
   const part = (pts) => { poly(pts, 'rgba(255,255,255,.28)'); ctx.beginPath(); ctx.moveTo(...pts[3]); ctx.lineTo(...pts[2]); ctx.strokeStyle = 'rgba(80,95,90,.55)'; ctx.lineWidth = 1.5; ctx.stroke(); };
   const PH = 16;
   part([iso(10, 0), iso(10, GY), iso(10, GY, PH), iso(10, 0, PH)]);
+  part([iso(0, 3), iso(10, 3), iso(10, 3, PH), iso(0, 3, PH)]);
   part([iso(10, 5), iso(GX, 5), iso(GX, 5, PH), iso(10, 5, PH)]);
   part([iso(10, 10), iso(GX, 10), iso(GX, 10, PH), iso(10, 10, PH)]);
   part([iso(14, 5), iso(14, 10), iso(14, 10, PH), iso(14, 5, PH)]);
@@ -653,7 +786,7 @@ function drawDesk(dk, t) {
   box(dk.x, dk.y, dk.w, dk.d, 3, '#f6f7f3', '#d3d7d0', '#c2c7bf', H0 - 3);
   // legs
   [[dk.x + 0.06, dk.y + dk.d - 0.06], [dk.x + dk.w - 0.06, dk.y + dk.d - 0.06]].forEach(([x, y]) => { const [a, b] = iso(x, y); ctx.fillStyle = '#9aa29a'; ctx.fillRect(a - 1, b - H0 + 3, 2, H0 - 3); });
-  const ins = INS.find(i => i.sym === dk.sym), h = ins.hist.slice(-28), lo = Math.min(...h), hi = Math.max(...h);
+  const ins = getIns(dk.sym), h = ins.hist.slice(-28), lo = Math.min(...h), hi = Math.max(...h);
   const up = h[h.length - 1] >= h[0];
   for (let m = 0; m < dk.mons; m++) {
     const mw = dk.mons === 2 ? 0.72 : 0.8, cx = dk.x + (dk.mons === 2 ? (m ? 0.73 : 0.27) * dk.w : dk.w / 2), my = dk.y + 0.18;
@@ -768,9 +901,9 @@ function renderChip() {
   if (!sel) { chip.hidden = true; return; }
   let title, body;
   if (sel.type === 'agent') {
-    const a = agents[sel.id], ins = INS.find(i => i.sym === a.sym);
+    const a = agents[sel.id], ins = getIns(a.sym);
     title = `${a.name} · ${DEPTS[a.dept].name}`;
-    body = `${a.role} · ${statusOf(a)}${a.dept === 'tec' || a.dept === 'qnt' ? ` · ${ins.sym} ${px(ins, ins.p)}` : ''}`;
+    body = `${a.role} · ${statusOf(a)}${a.dept === 'tec' || a.dept === 'qnt' || a.dept === 'gld' ? ` · ${ins.sym} ${px(ins, ins.p)}` : ''}`;
   } else {
     const d = DEPTS[sel.id]; title = d.name; body = `${agentsOf(sel.id).length} agentes · ${deptStat(sel.id)}`;
   }
@@ -784,6 +917,7 @@ function statusOf(a) {
   if (a.dept === 'com') return S.meeting ? 'Presidiendo la revisión' : 'Diario de decisiones';
   if (a.dept === 'mac') return a.role === 'Calendario' ? `Vigilando ${S.nextEvent.name}` : 'Leyendo el contexto';
   if (a.dept === 'rsk') return 'Monitorizando límites';
+  if (a.dept === 'gld') { const e = G.eng.find(x => x.id === a.engine); return e.pos ? `${e.pos.dir > 0 ? 'Largo' : 'Corto'} ${e.pos.lots.toFixed(2)} lt` : e.pend ? 'Órdenes pendientes' : e.note || 'Esperando vela'; }
   return `Analizando ${a.sym}`;
 }
 function deptStat(d) {
@@ -792,6 +926,7 @@ function deptStat(d) {
   if (d === 'mac') return `Régimen ${sgn(S.riskOn)}`;
   if (d === 'rsk') return `Expo ${Math.round(notional() / eq * 100)}% · límite 150%`;
   if (d === 'qnt') { const m = INS.reduce((b, i) => Math.abs(i.z) > Math.abs(b.z) ? i : b); return `z máx ${m.sym} ${m.z.toFixed(2)}`; }
+  if (d === 'gld') return `Cuenta ${usd(GOLD_ALLOC + G.realized + goldUnreal())}`;
   return `${S.decisions} revisiones · ${S.orders} órdenes`;
 }
 
@@ -810,7 +945,7 @@ function buildSidebar() {
       <span><b>${a.name}</b><span class="r">${DEPTS[a.dept].short} · ${a.role}</span></span>
       <span class="st" data-st="${a.id}"></span>
     </button>`).join('');
-  pulseList.innerHTML = INS.map(i => `<div class="pulse-row"><b>${i.sym}</b><span class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i.name}</span><span class="mono" data-pulse="${i.sym}"></span></div>`).join('');
+  pulseList.innerHTML = [...INS, G].map(i => `<div class="pulse-row"><b>${i.sym}</b><span class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i.name}</span><span class="mono" data-pulse="${i.sym}"></span></div>`).join('');
   $('#legend').innerHTML = Object.values(DEPTS).map(d => `<span><span class="dot" style="background:${d.color}"></span>${d.name}</span>`).join('');
 }
 deptList.addEventListener('click', e => { const b = e.target.closest('[data-dept]'); if (b) select(sel && sel.type === 'dept' && sel.id === b.dataset.dept ? null : { type: 'dept', id: b.dataset.dept }); });
@@ -859,6 +994,40 @@ function spark(ins) {
     <polyline points="${pts.join(' ')}" fill="none" stroke="${c}" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
     <circle cx="${last[0]}" cy="${last[1]}" r="3" fill="${c}"/></svg>`;
 }
+function goldPanel() {
+  const cs = [...G.h4.slice(-32), G.cur], CW = 560, VW = 720, VH = 230, pad = 12;
+  const lv = [];
+  G.eng.forEach(e => {
+    if (e.pend && e.pend.buy != null) lv.push({ v: e.pend.buy, c: 'var(--gold)', t: `${e.id} buy stop`, dash: '5 4' });
+    if (e.pend && e.pend.sell != null) lv.push({ v: e.pend.sell, c: 'var(--muted)', t: `${e.id} sell stop`, dash: '5 4' });
+    if (e.pos) { lv.push({ v: e.pos.entry, c: 'var(--fg)', t: `${e.id} entrada`, dash: '' }); lv.push({ v: e.pos.sl, c: 'var(--down)', t: `${e.id} SL`, dash: '3 3' }); lv.push({ v: e.pos.tp, c: 'var(--up)', t: `${e.id} TP`, dash: '3 3' }); }
+  });
+  const merged = [];
+  lv.sort((a, b) => b.v - a.v).forEach(l => { const m = merged.find(x => Math.abs(x.v - l.v) < 0.005 && x.c === l.c); if (m) m.t = m.t.replace(/^(\S+)/, `$1/${l.t.split(' ')[0]}`); else merged.push({ ...l }); });
+  let lo = Math.min(...cs.map(c => c.l), ...merged.map(l => l.v)), hi = Math.max(...cs.map(c => c.h), ...merged.map(l => l.v));
+  const span = (hi - lo) || 1; lo -= span * 0.04; hi += span * 0.04;
+  const y = v => pad + (hi - v) / (hi - lo) * (VH - 2 * pad), step = CW / cs.length, bw = Math.max(3, step * 0.6);
+  const candles = cs.map((c, i) => { const x = i * step + step / 2, up = c.c >= c.o, col = up ? 'var(--up)' : 'var(--down)', last = i === cs.length - 1;
+    return `<line x1="${x}" x2="${x}" y1="${y(c.h)}" y2="${y(c.l)}" stroke="${col}" stroke-width="1" opacity="${last ? 0.6 : 1}"/><rect x="${x - bw / 2}" y="${y(Math.max(c.o, c.c))}" width="${bw}" height="${Math.max(1, Math.abs(y(c.o) - y(c.c)))}" fill="${col}" opacity="${last ? 0.5 : 0.9}"/>`; }).join('');
+  let lastY = -99;
+  const levels = merged.map(l => { const yy = y(l.v); let ty = yy + 3.5; if (ty - lastY < 11) ty = lastY + 11; lastY = ty;
+    return `<line x1="0" x2="${CW}" y1="${yy}" y2="${yy}" stroke="${l.c}" stroke-width="1" ${l.dash ? `stroke-dasharray="${l.dash}"` : ''}/><text x="${CW + 6}" y="${ty}" fill="${l.c}" font-size="9.5">${esc(l.t)} ${fmtG(l.v)}</text>`; }).join('');
+  const py = y(G.p);
+  const eqG = GOLD_ALLOC + G.realized + goldUnreal(), tot = G.eng.reduce((s, e) => s + e.wins + e.losses, 0), wins = G.eng.reduce((s, e) => s + e.wins, 0);
+  const rows = G.eng.map(e => {
+    const st = e.pos ? `<span class="side-pill ${e.pos.dir > 0 ? 'long' : 'short'}">${e.pos.dir > 0 ? 'LARGO' : 'CORTO'} ${e.pos.lots.toFixed(2)}</span>${e.pos.trailing ? ' <span class="muted">trailing</span>' : ''}` : e.pend ? '<span class="side-pill flat">PENDIENTES</span>' : `<span class="muted">${esc(e.note || 'Esperando vela')}</span>`;
+    const n = e.wins + e.losses;
+    return `<tr><td>${e.name}</td><td class="txt">${st}</td><td class="n">${goldLots(e).toFixed(2)}</td><td class="n">${e.tp === 3 ? '$3' : '$20'} / $10</td><td class="n">${n}</td><td class="n">${n ? Math.round(e.wins / n * 100) + '%' : '—'}</td><td class="n ${e.pnl >= 0 ? 'up' : 'down'}">${usd(e.pnl, true)}</td></tr>`;
+  }).join('');
+  return `<div class="ins-h"><div><b>Breakout Gold Pro · XAUUSD</b><small>Tres motores de ruptura con las reglas de tu ficha técnica · cuenta asignada $2,000 · 1 vela H4 = 30 s de simulación</small></div>
+    <div class="ins-px"><div>${fmtG(G.p)}</div><span class="${G.p >= G.open ? 'up' : 'down'}" style="font-size:12px">${pct(G.p / G.open - 1)}</span></div></div>
+    <div class="gold-stats"><div><span class="lab">Cuenta Gold Pro</span><b class="mono">${usd(eqG)}</b></div><div><span class="lab">P&amp;L</span><b class="mono ${eqG >= GOLD_ALLOC ? 'up' : 'down'}">${usd(eqG - GOLD_ALLOC, true)}</b></div><div><span class="lab">Operaciones</span><b class="mono">${tot}</b></div><div><span class="lab">Acierto</span><b class="mono">${tot ? Math.round(wins / tot * 100) + '%' : '—'}</b></div><div><span class="lab">Spread</span><b class="mono">${Math.round(G.spread * 100)} pts</b></div></div>
+    <div class="scroll"><svg class="gold-chart" viewBox="0 0 ${VW} ${VH}" role="img" aria-label="Velas H4 del oro con las órdenes pendientes y posiciones de cada motor">
+      ${[0.25, 0.5, 0.75].map(f => `<line x1="0" x2="${CW}" y1="${VH * f}" y2="${VH * f}" stroke="var(--line)"/>`).join('')}
+      ${candles}${levels}
+      <circle cx="${CW - step / 2}" cy="${py}" r="3" fill="var(--fg)"/></svg></div>
+    <div class="scroll"><table class="eng"><thead><tr><th>Motor</th><th>Estado</th><th class="n">Lote</th><th class="n">TP / SL</th><th class="n">Ops</th><th class="n">Acierto</th><th class="n">P&amp;L</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
 function barRow(label, v) {
   const c = v >= 0 ? 'var(--up)' : 'var(--down)', w = Math.abs(v) * 50;
   return `<span class="muted">${label}</span><div class="bar"><i></i><span style="background:${c};${v >= 0 ? 'left:50%' : `left:${50 - w}%`};width:${w}%"></span></div><span class="mono" style="text-align:right">${sgn(v)}</span>`;
@@ -867,13 +1036,14 @@ function barRow(label, v) {
 function updateUI(force) {
   const eq = equity(), pnl = eq - START, u = unreal(), not = notional(), open = INS.filter(i => S.pos[i.sym]);
   $('#kEq').textContent = usd(eq);
-  $('#kEqSub').textContent = `Balance ${usd(START + S.realized - S.fees)}`;
+  $('#kEqSub').textContent = `Balance ${usd(balance())}`;
   const kp = $('#kPnl'); kp.textContent = `${usd(pnl, true)} ${pnl >= 0 ? '↗' : '↘'}`; kp.className = 'val ' + (pnl >= 0 ? 'up' : 'down');
   $('#kExp').textContent = (not / eq * 100).toFixed(2) + '%';
-  $('#kExpSub').textContent = open.length ? `${usd(not)} · ${open.map(i => i.sym).join(' ')}` : 'Sin posiciones';
+  const goldOpenN = G.eng.filter(e => e.pos).length, syms = open.map(i => i.sym).concat(goldOpenN ? ['XAUUSD'] : []);
+  $('#kExpSub').textContent = syms.length ? `${usd(not)} · ${syms.join(' ')}` : 'Sin posiciones';
   $('#kDec').textContent = S.decisions;
   $('#kDecSub').textContent = 'Última: ' + (S.lastDecision || '—');
-  $('#aBal').textContent = usd(START + S.realized - S.fees);
+  $('#aBal').textContent = usd(balance());
   const au = $('#aUnr'); au.textContent = usd(u, true); au.className = u >= 0 ? 'up' : 'down';
   $('#aFee').textContent = usd(-S.fees);
   $('#aDD').textContent = pct((eq - S.peak) / S.peak, 2, false);
@@ -887,7 +1057,7 @@ function updateUI(force) {
   // sidebar
   deptList.querySelectorAll('[data-stat]').forEach(el => { el.textContent = deptStat(el.dataset.stat); });
   agentList.querySelectorAll('[data-st]').forEach(el => { el.textContent = statusOf(agents[+el.dataset.st]); });
-  pulseList.querySelectorAll('[data-pulse]').forEach(el => { const i = INS.find(x => x.sym === el.dataset.pulse), ch = i.p / i.open - 1; el.innerHTML = `${px(i, i.p)} <span class="${ch >= 0 ? 'up' : 'down'}">${pct(ch)}</span>`; });
+  pulseList.querySelectorAll('[data-pulse]').forEach(el => { const i = getIns(el.dataset.pulse), ch = i.p / i.open - 1; el.innerHTML = `${px(i, i.p)} <span class="${ch >= 0 ? 'up' : 'down'}">${pct(ch)}</span>`; });
   $('#riskVal').textContent = sgn(S.riskOn);
   const rb = $('#riskBar'), rw = Math.abs(S.riskOn) * 50;
   rb.style.cssText = `left:${S.riskOn >= 0 ? 50 : 50 - rw}%;width:${rw}%;background:${S.riskOn >= 0 ? 'var(--up)' : 'var(--down)'}`;
@@ -895,6 +1065,7 @@ function updateUI(force) {
   if (sel) renderChip();
 
   if (view === 'analisis') {
+    $('#goldCard').innerHTML = goldPanel();
     $('#insCards').innerHTML = INS.map(i => {
       const ch = i.p / i.open - 1, p = S.pos[i.sym], comp = 0.45 * i.tec + 0.2 * i.qnt + 0.35 * i.mac;
       const side = p ? (p.qty > 0 ? `<span class="side-pill long">LARGO ${p.qty}</span>` : `<span class="side-pill short">CORTO ${-p.qty}</span>`) : '<span class="side-pill flat">SIN POSICIÓN</span>';
@@ -907,10 +1078,12 @@ function updateUI(force) {
     }).join('');
   }
   if (view === 'operaciones') {
-    $('#posCount').textContent = `${open.length} abiertas`;
-    $('#posTbl').innerHTML = open.length ? `<table><thead><tr><th>Símbolo</th><th>Lado</th><th class="n">Contratos</th><th class="n">Precio medio</th><th class="n">Último</th><th class="n">Nocional</th><th class="n">P&amp;L no realizado</th></tr></thead><tbody>${open.map(i => { const p = S.pos[i.sym], uu = unrealOf(i); return `<tr><td>${i.sym}</td><td><span class="side-pill ${p.qty > 0 ? 'long' : 'short'}">${p.qty > 0 ? 'LARGO' : 'CORTO'}</span></td><td class="n">${Math.abs(p.qty)}</td><td class="n">${px(i, p.avg)}</td><td class="n">${px(i, i.p)}</td><td class="n">${usd(Math.abs(p.qty) * i.p * i.mult)}</td><td class="n ${uu >= 0 ? 'up' : 'down'}">${usd(uu, true)}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty">No hay posiciones abiertas. El comité abrirá la siguiente cuando la señal compuesta supere ±0.35.</div>';
+    const gp = G.eng.filter(e => e.pos);
+    $('#posCount').textContent = `${open.length + gp.length} abiertas`;
+    const goldRows = gp.map(e => { const p = e.pos, uu = (G.p - p.entry) * p.dir * p.lots * OZ; return `<tr><td>XAUUSD · ${e.id}</td><td><span class="side-pill ${p.dir > 0 ? 'long' : 'short'}">${p.dir > 0 ? 'LARGO' : 'CORTO'}</span></td><td class="n">${p.lots.toFixed(2)} lt</td><td class="n">${fmtG(p.entry)}</td><td class="n">${fmtG(G.p)}</td><td class="n">${usd(p.lots * OZ * G.p)}</td><td class="n ${uu >= 0 ? 'up' : 'down'}">${usd(uu, true)}</td></tr>`; }).join('');
+    $('#posTbl').innerHTML = open.length || gp.length ? `<table><thead><tr><th>Símbolo</th><th>Lado</th><th class="n">Tamaño</th><th class="n">Precio medio</th><th class="n">Último</th><th class="n">Nocional</th><th class="n">P&amp;L no realizado</th></tr></thead><tbody>${open.map(i => { const p = S.pos[i.sym], uu = unrealOf(i); return `<tr><td>${i.sym}</td><td><span class="side-pill ${p.qty > 0 ? 'long' : 'short'}">${p.qty > 0 ? 'LARGO' : 'CORTO'}</span></td><td class="n">${Math.abs(p.qty)}</td><td class="n">${px(i, p.avg)}</td><td class="n">${px(i, i.p)}</td><td class="n">${usd(Math.abs(p.qty) * i.p * i.mult)}</td><td class="n ${uu >= 0 ? 'up' : 'down'}">${usd(uu, true)}</td></tr>`; }).join('')}${goldRows}</tbody></table>` : '<div class="empty">No hay posiciones abiertas. El comité abrirá la siguiente cuando la señal compuesta supere ±0.35, y el Breakout Gold Pro cuando el oro rompa un nivel.</div>';
     $('#trCount').textContent = `${S.trades.length} en la sesión`;
-    $('#trTbl').innerHTML = S.trades.length ? `<table><thead><tr><th>Cierre</th><th>Símbolo</th><th>Lado</th><th class="n">Contratos</th><th class="n">Entrada</th><th class="n">Salida</th><th class="n">P&amp;L neto</th><th>Motivo</th></tr></thead><tbody>${S.trades.slice(0, 60).map(tr => `<tr><td>${clock(tr.t)}</td><td>${tr.sym}</td><td>${tr.side}</td><td class="n">${tr.qty}</td><td class="n">${px(tr.ins, tr.entry)}</td><td class="n">${px(tr.ins, tr.exit)}</td><td class="n ${tr.pnl >= 0 ? 'up' : 'down'}">${usd(tr.pnl, true)}</td><td class="txt">${tr.reason}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Todavía no hay operaciones cerradas en esta sesión.</div>';
+    $('#trTbl').innerHTML = S.trades.length ? `<table><thead><tr><th>Cierre</th><th>Símbolo</th><th>Lado</th><th class="n">Tamaño</th><th class="n">Entrada</th><th class="n">Salida</th><th class="n">P&amp;L neto</th><th>Motivo</th></tr></thead><tbody>${S.trades.slice(0, 60).map(tr => `<tr><td>${clock(tr.t)}</td><td>${tr.sym}</td><td>${tr.side}</td><td class="n">${tr.qty}</td><td class="n">${px(tr.ins, tr.entry)}</td><td class="n">${px(tr.ins, tr.exit)}</td><td class="n ${tr.pnl >= 0 ? 'up' : 'down'}">${usd(tr.pnl, true)}</td><td class="txt">${tr.reason}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Todavía no hay operaciones cerradas en esta sesión.</div>';
   }
   if (view === 'actividad' && (force || feedShown !== S.logSeq)) {
     feedShown = S.logSeq;
@@ -930,8 +1103,9 @@ $('#bKill').addEventListener('click', () => {
   if (S.killed) return;
   if (!killArmed) { killArmed = setTimeout(() => { killArmed = 0; b.classList.remove('armed'); b.textContent = 'Kill switch'; }, 3500); b.classList.add('armed'); b.textContent = 'Confirmar: cerrar todo'; return; }
   clearTimeout(killArmed); killArmed = 0; b.classList.remove('armed'); b.textContent = 'Kill switch';
-  const n = Object.keys(S.pos).length;
+  let n = Object.keys(S.pos).length;
   INS.forEach(i => { if (S.pos[i.sym]) execute(i, 0, 'Kill switch'); });
+  G.eng.forEach(e => { if (e.pos) { n++; goldClose(e, G.p, 'Kill switch'); } e.pend = null; e.note = 'Kill switch activo'; });
   S.killed = true; log('sys', `Kill switch activado: ${n} posiciones cerradas a mercado, trading detenido`);
   updateUI(true);
 });
