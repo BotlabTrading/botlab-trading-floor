@@ -1,0 +1,7 @@
+{
+  "symbol": "XAUUSD",
+  "magics": { "D1": 0, "H4": 0, "H4B": 0 },
+  "history_days": 7,
+  "port": 8765,
+  "terminal_path": ""
+}

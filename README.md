@@ -20,8 +20,24 @@ Es un único archivo, sin dependencias ni compilación:
 - En local: abre `index.html` en el navegador.
 - En la web: activa GitHub Pages (Settings → Pages → Deploy from a branch → `main` / root).
 
+## Conectar con MetaTrader 5 (Breakout Gold Pro en vivo)
+
+El puente `bridge/mt5_bridge.py` lee de tu MetaTrader 5 la cuenta, las velas del oro y las posiciones, órdenes pendientes e historial (últimos 7 días) del Breakout Gold Pro, y los muestra en la floor. **Es de solo lectura: nunca abre, modifica ni cierra órdenes.** El resto de departamentos sigue en modo demo.
+
+Requisitos: Windows con MetaTrader 5 abierto y con sesión iniciada (empieza con una cuenta demo), y Python 3 de 64 bits desde python.org.
+
+1. Descarga el repo (Code → Download ZIP) y descomprímelo.
+2. Abre `bridge/config.json` y pon:
+   - `symbol`: el nombre del oro en tu bróker (`XAUUSD`, `XAUUSD.r`, `GOLD`…).
+   - `magics`: el magic number de cada motor (`D1`, `H4`, `H4B`), tal como los tienes en los inputs del EA.
+3. Haz doble clic en `bridge/iniciar.bat` (instala el paquete `MetaTrader5` la primera vez) y deja la ventana abierta.
+4. Abre http://localhost:8765 en el navegador. Verás la etiqueta **MT5 · DEMO** arriba y el panel del Breakout Gold Pro con los datos reales en la pestaña Análisis.
+
+Si no sabes los magic numbers, arranca igualmente: la web te enseña los que encuentra en tu cuenta.
+
+Para probar el puente sin MetaTrader: `MT5_FAKE=1 python bridge/mt5_bridge.py` (usa datos inventados de `bridge/fake_mt5.py`).
+
 ## Próximos pasos
 
-- Datos de mercado reales (solo lectura).
 - Modelos de IA reales detrás de cada departamento.
 - Persistencia del diario de decisiones.

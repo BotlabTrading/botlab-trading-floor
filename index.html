@@ -148,6 +148,8 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:1000/620;max-width:100%
 .gold-stats .lab{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .gold-stats b{font-size:15px}
 @media (max-width:720px){.gold-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.gold .warn{border:1px solid rgba(230,182,90,.45);background:rgba(230,182,90,.08);border-radius:8px;padding:8px 10px;font-size:12px}
+.live-tag{font-family:var(--f-mono);font-size:10px;background:rgba(87,210,155,.15);color:var(--up);border-radius:4px;padding:1px 6px;margin-right:4px}
 .gold-chart{display:block;width:100%;min-width:560px;height:auto}
 .gold-chart text{font-family:var(--f-mono)}
 table.eng{min-width:600px}
@@ -202,6 +204,7 @@ th.n,td.n{text-align:right}
       <span class="pill live" id="statePill">EN VIVO · DEMO</span>
       <span class="mono muted" id="clock">09:30:00</span>
       <span class="muted" id="nextMeet"></span>
+      <span class="pill" id="mt5Pill" hidden></span>
     </div>
     <div class="btns">
       <button class="btn primary" id="bCom" type="button">Convocar comité</button>
@@ -435,9 +438,9 @@ const agentsOf = d => agents.filter(a => a.dept === d);
 
 function unrealOf(ins) { const p = S.pos[ins.sym]; return p ? (ins.p - p.avg) * p.qty * ins.mult : 0; }
 function unreal() { return INS.reduce((s, i) => s + unrealOf(i), 0) + goldUnreal(); }
-function balance() { return START + S.realized - S.fees + G.realized; }
+function balance() { return START + S.realized - S.fees + (LIVE.on ? 0 : G.realized); }
 function equity() { return balance() + unreal(); }
-function notional() { return INS.reduce((s, i) => s + (S.pos[i.sym] ? Math.abs(S.pos[i.sym].qty) * i.p * i.mult : 0), 0) + G.eng.reduce((s, e) => s + (e.pos ? e.pos.lots * OZ * G.p : 0), 0); }
+function notional() { return INS.reduce((s, i) => s + (S.pos[i.sym] ? Math.abs(S.pos[i.sym].qty) * i.p * i.mult : 0), 0) + (LIVE.on ? 0 : G.eng.reduce((s, e) => s + (e.pos ? e.pos.lots * OZ * G.p : 0), 0)); }
 const getIns = sym => sym === 'XAUUSD' ? G : INS.find(i => i.sym === sym);
 
 // ---------- Breakout Gold Pro (XAUUSD). Reglas de la ficha técnica; tiempo comprimido: 1 vela H4 = 30 s, 1 día = 6 velas H4.
@@ -448,11 +451,12 @@ const ENGINES = [
   { id: 'H4B', name: 'Motor H4-B', tf: 'H4', tp: 3, sl: 10, trail: false, volF: true, persist: true, lotPer: 150 },
 ];
 let G;
+const LIVE = { on: false, bridge: false, err: '', d: null, seeded: false, seenPos: new Set(), seenOrd: new Set(), seenTr: new Set() };
 const r2 = v => Math.round(v * 100) / 100;
 const fmtG = v => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const newCandle = p => ({ o: p, h: p, l: p, c: p, v: 0, vm: Math.exp(gauss() * 0.55) });
 const goldAgent = e => agents.find(a => a.dept === 'gld' && a.engine === e.id);
-const goldUnreal = () => G ? G.eng.reduce((s, e) => s + (e.pos ? (G.p - e.pos.entry) * e.pos.dir * e.pos.lots * OZ : 0), 0) : 0;
+const goldUnreal = () => G && !LIVE.on ? G.eng.reduce((s, e) => s + (e.pos ? (G.p - e.pos.entry) * e.pos.dir * e.pos.lots * OZ : 0), 0) : 0;
 const goldLots = e => Math.max(0.01, Math.floor((GOLD_ALLOC + G.realized) / e.lotPer) / 100);
 function newGold() {
   G = { sym: 'XAUUSD', name: 'Oro al contado', dec: 2, tick: 0.01, p: 2652.4, hist: [], open: 0, spread: 0.25, trend: 0, tec: 0, qnt: 0, mac: 0, z: 0,
@@ -463,6 +467,7 @@ function newGold() {
   G.open = G.p;
 }
 function goldStep(history) {
+  if (LIVE.on && !history) return; // con MT5 conectado, el oro viene del terminal
   if (Math.random() < 0.01) G.trend = rnd(-1, 1);
   G.trend = clamp(G.trend + gauss() * 0.05);
   const prev = G.p;
@@ -926,7 +931,7 @@ function deptStat(d) {
   if (d === 'mac') return `Régimen ${sgn(S.riskOn)}`;
   if (d === 'rsk') return `Expo ${Math.round(notional() / eq * 100)}% · límite 150%`;
   if (d === 'qnt') { const m = INS.reduce((b, i) => Math.abs(i.z) > Math.abs(b.z) ? i : b); return `z máx ${m.sym} ${m.z.toFixed(2)}`; }
-  if (d === 'gld') return `Cuenta ${usd(GOLD_ALLOC + G.realized + goldUnreal())}`;
+  if (d === 'gld') return LIVE.on ? `MT5 equity ${usd(LIVE.d.account.equity)}` : `Cuenta ${usd(GOLD_ALLOC + G.realized + goldUnreal())}`;
   return `${S.decisions} revisiones · ${S.orders} órdenes`;
 }
 
@@ -994,6 +999,56 @@ function spark(ins) {
     <polyline points="${pts.join(' ')}" fill="none" stroke="${c}" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
     <circle cx="${last[0]}" cy="${last[1]}" r="3" fill="${c}"/></svg>`;
 }
+// ---------- MT5 en vivo: solo existe cuando la web se abre desde el puente (bridge/mt5_bridge.py)
+async function pollLive() {
+  let d = null;
+  try { const r = await fetch('api/state', { cache: 'no-store' }); if (r.ok && (r.headers.get('content-type') || '').includes('json')) d = await r.json(); } catch (e) {}
+  if (!d && !LIVE.bridge) return; // sin puente: modo demo
+  LIVE.bridge = true;
+  if (!d) LIVE.err = 'Sin conexión con el puente MT5. ¿Has cerrado iniciar.bat?';
+  else if (!d.connected) LIVE.err = d.error || 'MetaTrader 5 no conectado';
+  else { LIVE.err = ''; try { applyLive(d); } catch (e) { LIVE.err = 'Datos de MT5 inesperados: ' + e.message; } }
+  setTimeout(pollLive, 2000);
+}
+function applyLive(d) {
+  const first = !LIVE.seeded;
+  LIVE.on = true; LIVE.d = d;
+  G.p = d.bid; G.spread = r2(d.ask - d.bid);
+  G.hist.push(G.p); if (G.hist.length > 480) G.hist.shift();
+  const mk = x => ({ o: x.o, h: x.h, l: x.l, c: x.c, v: x.v });
+  if (d.h4.length) { G.h4 = d.h4.slice(0, -1).map(mk); G.cur = mk(d.h4[d.h4.length - 1]); }
+  if (d.d1.length) { G.d1 = d.d1.slice(0, -1).map(mk); G.open = d.d1[d.d1.length - 1].o; }
+  if (first) {
+    S.trades = S.trades.filter(t => t.ins !== G); S.log = S.log.filter(l => l.dept !== 'gld');
+    G.eng.forEach(e => { e.savedLow = null; });
+    log('sys', `Conectado a MetaTrader 5: cuenta ${d.account.login} (${d.account.mode}) en ${d.account.server}. Breakout Gold Pro en vivo, solo lectura.`);
+  }
+  for (const e of G.eng) {
+    const a = goldAgent(e), ps = d.positions.filter(p => p.engine === e.id), os = d.orders.filter(o => o.engine === e.id);
+    if (ps.length) {
+      const lots = ps.reduce((s, p) => s + p.volume, 0), p0 = ps[0];
+      e.pos = { dir: p0.dir, lots, entry: r2(ps.reduce((s, p) => s + p.entry * p.volume, 0) / lots), sl: p0.sl, tp: p0.tp, trailing: p0.sl > 0 && (p0.sl - p0.entry) * p0.dir > 0, profit: ps.reduce((s, p) => s + p.profit, 0) };
+    } else e.pos = null;
+    const b = os.find(o => o.type === 'buy_stop'), sl = os.find(o => o.type === 'sell_stop');
+    e.pend = b || sl ? { buy: b ? b.price : null, sell: sl ? sl.price : null } : null;
+    const tr = d.trades.filter(t => t.engine === e.id);
+    e.wins = tr.filter(t => t.profit >= 0).length; e.losses = tr.length - e.wins; e.pnl = tr.reduce((s, t) => s + t.profit, 0);
+    e.note = e.pos || e.pend ? '' : 'Esperando la próxima vela';
+    if (!first) {
+      ps.filter(p => !LIVE.seenPos.has(p.ticket)).forEach(p => { log('gld', `${a.name} · ${e.name} (MT5): ${p.dir > 0 ? 'compra' : 'venta'} de ${p.volume.toFixed(2)} lotes ${d.symbol} @ ${fmtG(p.entry)}`); say(a, `${p.dir > 0 ? 'BUY' : 'SELL'} ${p.volume.toFixed(2)} @ ${fmtG(p.entry)}`, 3.5); });
+      os.filter(o => !LIVE.seenOrd.has(o.ticket)).forEach(o => { log('gld', `${a.name} · ${e.name} (MT5): ${o.type.replace('_', ' ')} ${fmtG(o.price)}`); say(a, `${o.type.replace('_', ' ')} ${fmtG(o.price)}`, 3); });
+    }
+  }
+  d.trades.filter(t => !LIVE.seenTr.has(t.ticket)).forEach(t => {
+    const e = G.eng.find(x => x.id === t.engine), a = e && goldAgent(e);
+    S.trades.unshift({ t: S.simT, time: t.time, sym: `${d.symbol} · ${t.engine || t.magic}`, side: t.side, qty: t.volume.toFixed(2) + ' lt', entry: t.entry == null ? t.exit : t.entry, exit: t.exit, pnl: t.profit, reason: `${e ? e.name : 'Magic ' + t.magic} · ${t.reason} (MT5)`, ins: G });
+    if (!first) { log('gld', `${a ? a.name + ' · ' + e.name : 'Magic ' + t.magic} (MT5): cierre por ${t.reason.toLowerCase()} @ ${fmtG(t.exit)}, resultado ${usd(t.profit, true)}`); if (a) say(a, `${t.reason} ${usd(t.profit, true)}`, 3.5); }
+  });
+  if (S.trades.length > 200) S.trades.length = 200;
+  LIVE.seenPos = new Set(d.positions.map(p => p.ticket)); LIVE.seenOrd = new Set(d.orders.map(o => o.ticket));
+  d.trades.forEach(t => LIVE.seenTr.add(t.ticket));
+  LIVE.seeded = true;
+}
 function goldPanel() {
   const cs = [...G.h4.slice(-32), G.cur], CW = 560, VW = 720, VH = 230, pad = 12;
   const lv = [];
@@ -1017,11 +1072,16 @@ function goldPanel() {
   const rows = G.eng.map(e => {
     const st = e.pos ? `<span class="side-pill ${e.pos.dir > 0 ? 'long' : 'short'}">${e.pos.dir > 0 ? 'LARGO' : 'CORTO'} ${e.pos.lots.toFixed(2)}</span>${e.pos.trailing ? ' <span class="muted">trailing</span>' : ''}` : e.pend ? '<span class="side-pill flat">PENDIENTES</span>' : `<span class="muted">${esc(e.note || 'Esperando vela')}</span>`;
     const n = e.wins + e.losses;
-    return `<tr><td>${e.name}</td><td class="txt">${st}</td><td class="n">${goldLots(e).toFixed(2)}</td><td class="n">${e.tp === 3 ? '$3' : '$20'} / $10</td><td class="n">${n}</td><td class="n">${n ? Math.round(e.wins / n * 100) + '%' : '—'}</td><td class="n ${e.pnl >= 0 ? 'up' : 'down'}">${usd(e.pnl, true)}</td></tr>`;
+    return `<tr><td>${e.name}</td><td class="txt">${st}</td><td class="n">${LIVE.on ? (e.pos ? e.pos.lots.toFixed(2) : '—') : goldLots(e).toFixed(2)}</td><td class="n">${e.tp === 3 ? '$3' : '$20'} / $10</td><td class="n">${n}</td><td class="n">${n ? Math.round(e.wins / n * 100) + '%' : '—'}</td><td class="n ${e.pnl >= 0 ? 'up' : 'down'}">${usd(e.pnl, true)}</td></tr>`;
   }).join('');
-  return `<div class="ins-h"><div><b>Breakout Gold Pro · XAUUSD</b><small>Tres motores de ruptura con las reglas de tu ficha técnica · cuenta asignada $2,000 · 1 vela H4 = 30 s de simulación</small></div>
+  const L = LIVE.on ? LIVE.d : null, A = L && L.account;
+  const sub = L ? `<span class="live-tag">MT5 EN VIVO</span> Cuenta ${A.login} (${A.mode}) · ${esc(A.server)} · solo lectura · operaciones de los últimos 7 días` : 'Tres motores de ruptura con las reglas de tu ficha técnica · cuenta asignada $2,000 · 1 vela H4 = 30 s de simulación';
+  const warn = (LIVE.err ? `<div class="warn">${esc(LIVE.err)}</div>` : '') + (L && !Object.keys(L.magics).length ? `<div class="warn">Faltan los magic numbers de los motores en <b>bridge/config.json</b>.${L.seen_magics.length ? ` En tu cuenta aparecen: ${L.seen_magics.join(', ')}.` : ''}</div>` : '');
+  const stats = L ? [['Balance MT5', usd(A.balance), ''], ['Equity', usd(A.equity), ''], ['Flotante', usd(A.profit, true), A.profit >= 0 ? 'up' : 'down'], ['Operaciones', tot, ''], ['Acierto', tot ? Math.round(wins / tot * 100) + '%' : '—', '']]
+    : [['Cuenta Gold Pro', usd(eqG), ''], ['P&amp;L', usd(eqG - GOLD_ALLOC, true), eqG >= GOLD_ALLOC ? 'up' : 'down'], ['Operaciones', tot, ''], ['Acierto', tot ? Math.round(wins / tot * 100) + '%' : '—', ''], ['Spread', Math.round(G.spread * 100) + ' pts', '']];
+  return `<div class="ins-h"><div><b>Breakout Gold Pro · ${L ? esc(L.symbol) : 'XAUUSD'}</b><small>${sub}</small></div>
     <div class="ins-px"><div>${fmtG(G.p)}</div><span class="${G.p >= G.open ? 'up' : 'down'}" style="font-size:12px">${pct(G.p / G.open - 1)}</span></div></div>
-    <div class="gold-stats"><div><span class="lab">Cuenta Gold Pro</span><b class="mono">${usd(eqG)}</b></div><div><span class="lab">P&amp;L</span><b class="mono ${eqG >= GOLD_ALLOC ? 'up' : 'down'}">${usd(eqG - GOLD_ALLOC, true)}</b></div><div><span class="lab">Operaciones</span><b class="mono">${tot}</b></div><div><span class="lab">Acierto</span><b class="mono">${tot ? Math.round(wins / tot * 100) + '%' : '—'}</b></div><div><span class="lab">Spread</span><b class="mono">${Math.round(G.spread * 100)} pts</b></div></div>
+    ${warn}<div class="gold-stats">${stats.map(([l, v, c]) => `<div><span class="lab">${l}</span><b class="mono ${c}">${v}</b></div>`).join('')}</div>
     <div class="scroll"><svg class="gold-chart" viewBox="0 0 ${VW} ${VH}" role="img" aria-label="Velas H4 del oro con las órdenes pendientes y posiciones de cada motor">
       ${[0.25, 0.5, 0.75].map(f => `<line x1="0" x2="${CW}" y1="${VH * f}" y2="${VH * f}" stroke="var(--line)"/>`).join('')}
       ${candles}${levels}
@@ -1039,7 +1099,7 @@ function updateUI(force) {
   $('#kEqSub').textContent = `Balance ${usd(balance())}`;
   const kp = $('#kPnl'); kp.textContent = `${usd(pnl, true)} ${pnl >= 0 ? '↗' : '↘'}`; kp.className = 'val ' + (pnl >= 0 ? 'up' : 'down');
   $('#kExp').textContent = (not / eq * 100).toFixed(2) + '%';
-  const goldOpenN = G.eng.filter(e => e.pos).length, syms = open.map(i => i.sym).concat(goldOpenN ? ['XAUUSD'] : []);
+  const goldOpenN = LIVE.on ? 0 : G.eng.filter(e => e.pos).length, syms = open.map(i => i.sym).concat(goldOpenN ? ['XAUUSD'] : []);
   $('#kExpSub').textContent = syms.length ? `${usd(not)} · ${syms.join(' ')}` : 'Sin posiciones';
   $('#kDec').textContent = S.decisions;
   $('#kDecSub').textContent = 'Última: ' + (S.lastDecision || '—');
@@ -1053,6 +1113,8 @@ function updateUI(force) {
   pill.className = 'pill ' + (S.killed ? 'killed' : S.paused ? 'paused' : 'live');
   pill.textContent = S.killed ? 'KILL SWITCH' : S.paused ? 'EN PAUSA' : 'EN VIVO · DEMO';
   $('#killBanner').hidden = !S.killed;
+  const mp = $('#mt5Pill'); mp.hidden = !LIVE.bridge;
+  if (LIVE.bridge) { mp.className = 'pill ' + (LIVE.err ? 'killed' : 'live'); mp.textContent = LIVE.err ? 'MT5 · SIN CONEXIÓN' : `MT5 · ${LIVE.d.account.mode} ${LIVE.d.account.login}`; mp.title = LIVE.err || LIVE.d.account.server; }
 
   // sidebar
   deptList.querySelectorAll('[data-stat]').forEach(el => { el.textContent = deptStat(el.dataset.stat); });
@@ -1083,7 +1145,7 @@ function updateUI(force) {
     const goldRows = gp.map(e => { const p = e.pos, uu = (G.p - p.entry) * p.dir * p.lots * OZ; return `<tr><td>XAUUSD · ${e.id}</td><td><span class="side-pill ${p.dir > 0 ? 'long' : 'short'}">${p.dir > 0 ? 'LARGO' : 'CORTO'}</span></td><td class="n">${p.lots.toFixed(2)} lt</td><td class="n">${fmtG(p.entry)}</td><td class="n">${fmtG(G.p)}</td><td class="n">${usd(p.lots * OZ * G.p)}</td><td class="n ${uu >= 0 ? 'up' : 'down'}">${usd(uu, true)}</td></tr>`; }).join('');
     $('#posTbl').innerHTML = open.length || gp.length ? `<table><thead><tr><th>Símbolo</th><th>Lado</th><th class="n">Tamaño</th><th class="n">Precio medio</th><th class="n">Último</th><th class="n">Nocional</th><th class="n">P&amp;L no realizado</th></tr></thead><tbody>${open.map(i => { const p = S.pos[i.sym], uu = unrealOf(i); return `<tr><td>${i.sym}</td><td><span class="side-pill ${p.qty > 0 ? 'long' : 'short'}">${p.qty > 0 ? 'LARGO' : 'CORTO'}</span></td><td class="n">${Math.abs(p.qty)}</td><td class="n">${px(i, p.avg)}</td><td class="n">${px(i, i.p)}</td><td class="n">${usd(Math.abs(p.qty) * i.p * i.mult)}</td><td class="n ${uu >= 0 ? 'up' : 'down'}">${usd(uu, true)}</td></tr>`; }).join('')}${goldRows}</tbody></table>` : '<div class="empty">No hay posiciones abiertas. El comité abrirá la siguiente cuando la señal compuesta supere ±0.35, y el Breakout Gold Pro cuando el oro rompa un nivel.</div>';
     $('#trCount').textContent = `${S.trades.length} en la sesión`;
-    $('#trTbl').innerHTML = S.trades.length ? `<table><thead><tr><th>Cierre</th><th>Símbolo</th><th>Lado</th><th class="n">Tamaño</th><th class="n">Entrada</th><th class="n">Salida</th><th class="n">P&amp;L neto</th><th>Motivo</th></tr></thead><tbody>${S.trades.slice(0, 60).map(tr => `<tr><td>${clock(tr.t)}</td><td>${tr.sym}</td><td>${tr.side}</td><td class="n">${tr.qty}</td><td class="n">${px(tr.ins, tr.entry)}</td><td class="n">${px(tr.ins, tr.exit)}</td><td class="n ${tr.pnl >= 0 ? 'up' : 'down'}">${usd(tr.pnl, true)}</td><td class="txt">${tr.reason}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Todavía no hay operaciones cerradas en esta sesión.</div>';
+    $('#trTbl').innerHTML = S.trades.length ? `<table><thead><tr><th>Cierre</th><th>Símbolo</th><th>Lado</th><th class="n">Tamaño</th><th class="n">Entrada</th><th class="n">Salida</th><th class="n">P&amp;L neto</th><th>Motivo</th></tr></thead><tbody>${S.trades.slice(0, 60).map(tr => `<tr><td>${tr.time ? tr.time.slice(5, 16) : clock(tr.t)}</td><td>${tr.sym}</td><td>${tr.side}</td><td class="n">${tr.qty}</td><td class="n">${px(tr.ins, tr.entry)}</td><td class="n">${px(tr.ins, tr.exit)}</td><td class="n ${tr.pnl >= 0 ? 'up' : 'down'}">${usd(tr.pnl, true)}</td><td class="txt">${tr.reason}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Todavía no hay operaciones cerradas en esta sesión.</div>';
   }
   if (view === 'actividad' && (force || feedShown !== S.logSeq)) {
     feedShown = S.logSeq;
@@ -1095,7 +1157,7 @@ function updateUI(force) {
 // controls
 $('#bPause').addEventListener('click', () => { S.paused = !S.paused; $('#bPause').textContent = S.paused ? 'Reanudar' : 'Pausar'; $('#bPause').setAttribute('aria-pressed', String(S.paused)); log('sys', S.paused ? 'Simulación en pausa' : 'Simulación reanudada'); updateUI(true); });
 $('#bCom').addEventListener('click', () => { if (S.meeting) return; convene(true); updateUI(true); });
-$('#bReset').addEventListener('click', () => { newSession(); sel = null; renderChip(); buildSidebar(); syncSelections(); updateUI(true); });
+$('#bReset').addEventListener('click', () => { newSession(); LIVE.seeded = false; LIVE.seenTr.clear(); sel = null; renderChip(); buildSidebar(); syncSelections(); updateUI(true); });
 document.querySelectorAll('.speed button').forEach(b => b.addEventListener('click', () => { S.speed = +b.dataset.speed; document.querySelectorAll('.speed button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }));
 let killArmed = 0;
 $('#bKill').addEventListener('click', () => {
@@ -1105,7 +1167,8 @@ $('#bKill').addEventListener('click', () => {
   clearTimeout(killArmed); killArmed = 0; b.classList.remove('armed'); b.textContent = 'Kill switch';
   let n = Object.keys(S.pos).length;
   INS.forEach(i => { if (S.pos[i.sym]) execute(i, 0, 'Kill switch'); });
-  G.eng.forEach(e => { if (e.pos) { n++; goldClose(e, G.p, 'Kill switch'); } e.pend = null; e.note = 'Kill switch activo'; });
+  if (LIVE.on) log('sys', 'Aviso: el kill switch de la floor no toca MetaTrader 5. El puente es de solo lectura; para parar el EA hazlo en el terminal.');
+  else G.eng.forEach(e => { if (e.pos) { n++; goldClose(e, G.p, 'Kill switch'); } e.pend = null; e.note = 'Kill switch activo'; });
   S.killed = true; log('sys', `Kill switch activado: ${n} posiciones cerradas a mercado, trading detenido`);
   updateUI(true);
 });
@@ -1128,6 +1191,7 @@ function frame(now) {
 }
 render(0); updateUI(true);
 requestAnimationFrame(frame);
+pollLive();
 })();
 </script>
 </body>
