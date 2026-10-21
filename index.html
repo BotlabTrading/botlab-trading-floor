@@ -1,0 +1,960 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Botlab Trading Floor</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  /* Layout: barra superior con pestañas + franja de KPIs + barra de control; debajo, columna lateral (cuenta y floor) junto al escenario principal */
+  --bg:#101311; --panel:#171b18; --panel2:#1d221e; --line:#29302a; --fg:#e6eae2; --muted:#8a9488;
+  --accent:#a8c46c; --accent-ink:#18200d; --accent-soft:rgba(168,196,108,.14);
+  --up:#57d29b; --down:#f1716a; --warn:#e6b65a;
+  --f-ui:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{margin:0;font-family:var(--f-ui);font-size:14px;line-height:1.45;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 28px}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.up{color:var(--up)} .down{color:var(--down)} .muted{color:var(--muted)}
+.wrap{max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+
+/* Top bar */
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:10px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:13px;letter-spacing:.02em}
+.brand h1{font-size:15px;font-weight:800;letter-spacing:.08em;margin:0;text-transform:uppercase}
+.brand h1 sup{font-size:9px;color:var(--accent);margin-left:3px;letter-spacing:.04em}
+.brand small{display:block;font-family:var(--f-mono);font-size:10px;color:var(--muted);letter-spacing:.12em}
+.sync{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--up);margin-right:5px;vertical-align:1px;box-shadow:0 0 0 3px rgba(87,210,155,.15)}
+.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.tabs button{background:none;border:0;padding:8px 12px;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+.tabs button:hover{color:var(--fg)}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.kpi{padding:12px 16px;border-left:1px solid var(--line);min-width:0}
+.kpi:first-child{border-left:0}
+.kpi .lab{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.kpi .val{font-family:var(--f-mono);font-size:24px;font-weight:600;letter-spacing:-.01em;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .sub{font-family:var(--f-mono);font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:820px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi:nth-child(3){border-left:0}.kpi:nth-child(n+3){border-top:1px solid var(--line)}.kpi .val{font-size:19px}}
+
+/* Control bar */
+.controls{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.status{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;background:var(--panel)}
+.pill.live{color:var(--up);border-color:rgba(87,210,155,.35)}
+.pill.paused{color:var(--warn);border-color:rgba(230,182,90,.4)}
+.pill.killed{color:var(--down);border-color:rgba(241,113,106,.45);background:rgba(241,113,106,.08)}
+.btns{display:flex;gap:6px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 11px;font-size:12px;font-weight:500}
+.btn:hover{background:var(--panel2)}
+.btn.primary{background:var(--accent-soft);border-color:rgba(168,196,108,.4);color:var(--accent)}
+.btn.danger{border-color:rgba(241,113,106,.45);color:var(--down)}
+.btn.danger.armed{background:var(--down);color:#1d0b0a;border-color:var(--down)}
+.btn[aria-pressed="true"]{background:var(--panel2);border-color:var(--muted)}
+.speed{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.speed button{background:var(--panel);border:0;padding:6px 9px;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.speed button[aria-pressed="true"]{background:var(--panel2);color:var(--fg)}
+.banner{border:1px solid rgba(241,113,106,.45);background:rgba(241,113,106,.08);color:var(--fg);border-radius:10px;padding:9px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px}
+.banner b{color:var(--down)}
+
+/* Main grid */
+.main{display:grid;grid-template-columns:300px minmax(0,1fr);gap:12px;align-items:start}
+@media (max-width:980px){.main{grid-template-columns:minmax(0,1fr)}.side{order:2}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px}
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.acct{padding:14px;display:flex;flex-direction:column;gap:10px}
+.acct-h{display:flex;align-items:center;gap:10px}
+.acct-badge{width:36px;height:36px;border-radius:9px;border:1px solid rgba(168,196,108,.45);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:13px}
+.acct-h b{display:block;font-size:14px}
+.tag{font-family:var(--f-mono);font-size:10px;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--muted);margin-left:4px}
+.rows{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:12px}
+.rows dt{color:var(--muted)} .rows dd{margin:0;text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.floor{padding:14px 14px 10px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.floor-h{display:flex;align-items:center;justify-content:space-between}
+.floor-h h2{font-size:14px;margin:0;display:flex;align-items:center;gap:8px}
+.count{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 7px;color:var(--muted)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.seg button{background:none;border:0;border-radius:7px;padding:6px 4px;font-size:12px;color:var(--muted)}
+.seg button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.eyebrow{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.list{display:flex;flex-direction:column;gap:8px;max-height:560px;overflow:auto;padding-right:2px}
+.dept{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.dept:hover,.dept.sel{border-color:rgba(168,196,108,.5)}
+.dept.sel{background:var(--accent-soft)}
+.dept-t{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.dept p{margin:3px 0 6px;font-size:12px;color:var(--muted)}
+.dept-f{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:10.5px;color:var(--muted)}
+.dept-f .stat{color:var(--fg)}
+.agent{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:7px 2px;font-size:12px}
+.agent:hover,.agent.sel{background:var(--panel2)}
+.agent b{font-weight:600}
+.agent .r{color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+.agent .st{font-family:var(--f-mono);font-size:10px;color:var(--muted);white-space:nowrap}
+.note{font-size:11px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;margin:0}
+.pulse-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}
+.pulse-row b{font-family:var(--f-mono)}
+.meter{height:6px;border-radius:3px;background:var(--panel2);position:relative;overflow:hidden;margin-top:4px}
+.meter i{position:absolute;top:0;bottom:0;left:50%;width:2px;background:var(--muted)}
+.meter span{position:absolute;top:0;bottom:0;border-radius:3px}
+
+/* Stage */
+.stage{min-width:0;display:flex;flex-direction:column;gap:12px}
+.view[hidden]{display:none}
+.floorview{padding:14px;position:relative}
+.floorview-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.floorview-h h2{margin:0;font-size:16px;font-weight:700;text-wrap:balance}
+.canvas-wrap{position:relative;border-radius:10px;overflow:hidden;background:#cfd5d9}
+canvas{display:block;width:100%;height:auto;aspect-ratio:1000/620;max-width:100%;touch-action:manipulation}
+.chip{position:absolute;left:12px;bottom:12px;max-width:calc(100% - 24px);background:rgba(16,19,17,.92);color:var(--fg);border:1px solid rgba(168,196,108,.5);border-radius:10px;padding:8px 10px 8px 12px;display:flex;gap:10px;align-items:flex-start;font-size:12px}
+.chip b{display:block;font-size:13px}
+.chip button{background:none;border:0;color:var(--muted);font-size:16px;line-height:1;padding:0 2px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:720px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.ins{padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.ins-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.ins-h b{font-family:var(--f-mono);font-size:15px}
+.ins-h small{display:block;color:var(--muted);font-size:11px}
+.ins-px{text-align:right;font-family:var(--f-mono)}
+.ins-px div{font-size:17px;font-weight:600}
+.spark{width:100%;height:84px;display:block}
+.bars{display:grid;grid-template-columns:88px minmax(0,1fr) 44px;gap:6px 8px;align-items:center;font-size:11px}
+.bar{height:8px;background:var(--panel2);border-radius:4px;position:relative;overflow:hidden}
+.bar i{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--muted);opacity:.6}
+.bar span{position:absolute;top:0;bottom:0}
+.ins-f{display:flex;justify-content:space-between;align-items:center;font-size:11px;border-top:1px solid var(--line);padding-top:8px;gap:8px;flex-wrap:wrap}
+.side-pill{font-family:var(--f-mono);font-size:10.5px;border-radius:4px;padding:1px 6px;font-weight:600}
+.side-pill.long{background:rgba(87,210,155,.14);color:var(--up)}
+.side-pill.short{background:rgba(241,113,106,.14);color:var(--down)}
+.side-pill.flat{background:var(--panel2);color:var(--muted)}
+
+.tbl-card{padding:14px;min-width:0}
+.tbl-card h3{margin:0 0 10px;font-size:14px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:560px}
+th{text-align:left;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid var(--line);font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.txt{font-family:var(--f-ui);white-space:normal}
+th.n,td.n{text-align:right}
+.empty{color:var(--muted);font-size:12px;padding:14px 4px}
+
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.filters button{border:1px solid var(--line);background:var(--panel2);border-radius:999px;padding:4px 10px;font-size:11.5px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.filters button[aria-pressed="true"]{color:var(--fg);border-color:rgba(168,196,108,.5)}
+.feed{display:flex;flex-direction:column;max-height:640px;overflow:auto}
+.ev{display:grid;grid-template-columns:62px 10px minmax(0,1fr);gap:8px;padding:7px 2px;border-bottom:1px solid var(--line);font-size:12.5px;align-items:baseline}
+.ev time{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.ev .dot{margin-top:2px}
+.ev em{font-style:normal;color:var(--muted);font-size:11px;margin-right:6px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">BL</div>
+      <div>
+        <h1>Trading Floor<sup>AI</sup></h1>
+        <small><span class="sync"></span>SIM SYNC · v0.1</small>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Vistas">
+      <button role="tab" data-view="sala" aria-selected="true">Sala de trading</button>
+      <button role="tab" data-view="analisis" aria-selected="false">Análisis</button>
+      <button role="tab" data-view="operaciones" aria-selected="false">Operaciones</button>
+      <button role="tab" data-view="actividad" aria-selected="false">Actividad</button>
+    </nav>
+  </header>
+
+  <section class="kpis" aria-label="Resumen de la cuenta">
+    <div class="kpi"><div class="lab">Patrimonio</div><div class="val" id="kEq">—</div><div class="sub" id="kEqSub">—</div></div>
+    <div class="kpi"><div class="lab">P&amp;L de la sesión</div><div class="val" id="kPnl">—</div><div class="sub">Realizado + no realizado</div></div>
+    <div class="kpi"><div class="lab">Exposición nocional</div><div class="val" id="kExp">—</div><div class="sub" id="kExpSub">—</div></div>
+    <div class="kpi"><div class="lab">Revisiones del comité</div><div class="val" id="kDec">—</div><div class="sub" id="kDecSub">—</div></div>
+  </section>
+
+  <div class="controls">
+    <div class="status">
+      <span class="pill live" id="statePill">EN VIVO · DEMO</span>
+      <span class="mono muted" id="clock">09:30:00</span>
+      <span class="muted" id="nextMeet"></span>
+    </div>
+    <div class="btns">
+      <button class="btn primary" id="bCom" type="button">Convocar comité</button>
+      <button class="btn" id="bPause" type="button" aria-pressed="false">Pausar</button>
+      <div class="speed" role="group" aria-label="Velocidad">
+        <button type="button" data-speed="1" aria-pressed="true">1×</button>
+        <button type="button" data-speed="3" aria-pressed="false">3×</button>
+        <button type="button" data-speed="8" aria-pressed="false">8×</button>
+      </div>
+      <button class="btn" id="bReset" type="button" title="Reiniciar sesión">Reiniciar</button>
+      <button class="btn danger" id="bKill" type="button">Kill switch</button>
+    </div>
+  </div>
+  <div class="banner" id="killBanner" hidden>
+    <span><b>Kill switch activo.</b> Posiciones cerradas y el comité no puede ejecutar órdenes.</span>
+    <button class="btn" id="bRearm" type="button">Rearmar trading</button>
+  </div>
+
+  <div class="main">
+    <aside class="side">
+      <div class="card acct">
+        <div class="acct-h">
+          <div class="acct-badge">TF</div>
+          <div><b>Cuenta virtual</b><span class="mono muted" style="font-size:11px">DEMO-001</span><span class="tag">USD</span></div>
+        </div>
+        <dl class="rows">
+          <dt>Capital inicial</dt><dd>$100,000.00</dd>
+          <dt>Balance</dt><dd id="aBal">—</dd>
+          <dt>No realizado</dt><dd id="aUnr">—</dd>
+          <dt>Comisiones</dt><dd id="aFee">—</dd>
+          <dt>Drawdown desde máximo</dt><dd id="aDD">—</dd>
+        </dl>
+      </div>
+
+      <div class="card floor">
+        <div class="floor-h">
+          <h2><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="2" fill="#a8c46c"/><path d="M4.5 4.5a5 5 0 0 0 0 7M11.5 4.5a5 5 0 0 1 0 7" stroke="#a8c46c" stroke-width="1.4" stroke-linecap="round"/></svg>En el floor</h2>
+          <span class="count">24</span>
+        </div>
+        <div class="seg" role="tablist" aria-label="Floor">
+          <button role="tab" data-sub="sala" aria-selected="false">Sala</button>
+          <button role="tab" data-sub="agentes" aria-selected="false">Agentes</button>
+          <button role="tab" data-sub="deptos" aria-selected="true">Departamentos</button>
+        </div>
+        <div id="subSala" hidden>
+          <div class="eyebrow" style="margin-bottom:4px">Pulso del mercado</div>
+          <div id="pulseList"></div>
+          <div style="margin-top:12px">
+            <div class="eyebrow">Régimen macro</div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:4px"><span class="muted">Risk-off</span><span class="mono" id="riskVal">—</span><span class="muted">Risk-on</span></div>
+            <div class="meter"><i></i><span id="riskBar"></span></div>
+            <div style="font-size:12px;margin-top:10px" id="nextEv"></div>
+          </div>
+        </div>
+        <div id="subAgentes" hidden>
+          <div class="list" id="agentList"></div>
+        </div>
+        <div id="subDeptos">
+          <div class="eyebrow" style="margin-bottom:8px">Cinco perspectivas conectadas</div>
+          <div class="list" id="deptList"></div>
+        </div>
+        <p class="note">Los agentes representan procesos simulados. Los modelos de IA se incorporarán en una fase posterior.</p>
+      </div>
+    </aside>
+
+    <div class="stage">
+      <section class="view" id="v-sala">
+        <div class="card floorview">
+          <div class="floorview-h">
+            <h2>El pulso del mercado</h2>
+            <span class="muted" style="font-size:12px">Toca un agente o un departamento para seguirlo</span>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="cv" width="1000" height="620" aria-label="Oficina isométrica con 24 agentes simulados trabajando por departamentos"></canvas>
+            <div class="chip" id="chip" hidden></div>
+          </div>
+          <div class="legend" id="legend"></div>
+        </div>
+      </section>
+
+      <section class="view" id="v-analisis" hidden>
+        <div class="grid2" id="insCards"></div>
+      </section>
+
+      <section class="view" id="v-operaciones" hidden>
+        <div class="card tbl-card">
+          <h3>Posiciones abiertas <span class="muted mono" style="font-size:11px" id="posCount"></span></h3>
+          <div class="scroll" id="posTbl"></div>
+        </div>
+        <div class="card tbl-card" style="margin-top:12px">
+          <h3>Operaciones cerradas <span class="muted mono" style="font-size:11px" id="trCount"></span></h3>
+          <div class="scroll" id="trTbl"></div>
+        </div>
+      </section>
+
+      <section class="view" id="v-actividad" hidden>
+        <div class="card tbl-card">
+          <h3>Diario de actividad <span class="muted" style="font-size:11px">Últimos 300 eventos</span></h3>
+          <div class="filters" id="filters"></div>
+          <div class="feed" id="feed"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const START = 100000, FEE = 0.62, TICK = 0.5, MEET_EVERY = 24;
+const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const DEPTS = {
+  tec: { name: 'Análisis técnico', short: 'Técnico', desc: 'Estructura, volumen y contexto del precio.', color: '#6fae5a', floor: ['#dfe4e9', '#d8dee4'] },
+  mac: { name: 'Macroeconomía', short: 'Macro', desc: 'Contexto económico y calendario simulado.', color: '#e0a03f', floor: ['#ecdcbf', '#e6d4b4'] },
+  rsk: { name: 'Gestión de riesgo', short: 'Riesgo', desc: 'Supervisión de exposición y límites.', color: '#de5f62', floor: ['#ebc9cb', '#e5c0c3'] },
+  qnt: { name: 'Investigación cuantitativa', short: 'Quant', desc: 'Calidad de datos e hipótesis.', color: '#9480dc', floor: ['#dbd4f0', '#d3cbea'] },
+  com: { name: 'Comité de trading', short: 'Comité', desc: 'Revisión conjunta y diario de decisiones.', color: '#4fb2d2', floor: ['#cfe5ec', '#c6dee6'] },
+};
+const SYS = { name: 'Sistema', color: '#8a9488' };
+
+const INS_DEF = [
+  { sym: 'MNQ', name: 'Micro E-mini Nasdaq-100', p: 21452.25, tick: 0.25, dec: 2, mult: 2, sig: 0.00055, link: 1, max: 2 },
+  { sym: 'MES', name: 'Micro E-mini S&P 500', p: 5987.5, tick: 0.25, dec: 2, mult: 5, sig: 0.00045, link: 0.8, max: 3 },
+  { sym: 'MGC', name: 'Micro Oro', p: 2651.4, tick: 0.1, dec: 1, mult: 10, sig: 0.0004, link: -0.7, max: 3 },
+  { sym: 'MBT', name: 'Micro Bitcoin', p: 67250, tick: 5, dec: 0, mult: 0.1, sig: 0.0011, link: 1.2, max: 6 },
+];
+const EVENTS = [
+  { name: 'IPC EE.UU.', imp: 0.6 }, { name: 'Actas del FOMC', imp: 0.5 }, { name: 'Nóminas no agrícolas', imp: 0.7 },
+  { name: 'PMI manufacturero', imp: 0.35 }, { name: 'Peticiones de desempleo', imp: 0.3 }, { name: 'Ventas minoristas', imp: 0.4 },
+  { name: 'Confianza del consumidor', imp: 0.3 }, { name: 'Subasta del Tesoro a 10 años', imp: 0.35 },
+];
+
+// ---------- utils
+const clamp = (v, a = -1, b = 1) => Math.max(a, Math.min(b, v));
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+function gauss() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+const usd = (n, sign) => (n < 0 ? '−' : sign && n > 0 ? '+' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const px = (ins, p) => p.toLocaleString('en-US', { minimumFractionDigits: ins.dec, maximumFractionDigits: ins.dec });
+const pct = (n, d = 2, sign = true) => (n < 0 ? '−' : sign && n > 0 ? '+' : '') + Math.abs(n * 100).toFixed(d) + '%';
+const sgn = n => (n < 0 ? '−' : '+') + Math.abs(n).toFixed(2);
+function clock(t) { const s = Math.floor(9.5 * 3600 + t); const h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60, ss = s % 60; return [h, m, ss].map(x => String(x).padStart(2, '0')).join(':'); }
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// ---------- floor layout (grid coordinates, 18 × 13)
+const GX = 18, GY = 13;
+const desks = [], chairs = [], agents = [];
+const NAMES = {
+  tec: ['Lucía', 'Mateo', 'Sofía', 'Hugo', 'Valeria', 'Daniel', 'Martina', 'Pablo', 'Elena', 'Álvaro', 'Carmen', 'Diego'],
+  mac: ['Inés', 'Javier', 'Noa'], rsk: ['Marta', 'Sergio', 'Clara'], qnt: ['Iván', 'Paula', 'Rubén'], com: ['Adriana', 'Tomás', 'Laura'],
+};
+const ROLES = {
+  tec: ['Momentum', 'Volumen', 'Estructura'],
+  mac: ['Bancos centrales', 'Calendario', 'Flujos y sentimiento'],
+  rsk: ['Límites de exposición', 'Drawdown', 'Ejecución y stops'],
+  qnt: ['Calidad de datos', 'Reversión a la media', 'Backtesting'],
+  com: ['Presidencia', 'Secretaría · diario', 'Ejecución'],
+};
+const SKIN = ['#f1c7a3', '#d9a27a', '#b9805a', '#8d5a3b', '#f3d2b5', '#c98f68'];
+const HAIR = ['#2b2420', '#5a3b26', '#1c1c1c', '#8a5a2b', '#3b2a22', '#c79a5b'];
+const TABLE = { x: 14.5, y: 11.5, r: 1.0 };
+const seatAt = (deg, d = 1.45) => ({ x: TABLE.x + d * Math.cos(deg * Math.PI / 180), y: TABLE.y + d * Math.sin(deg * Math.PI / 180) });
+const REP_SEATS = [200, 250, 290, 340].map(a => ({ ...seatAt(a), key: 25 }));
+
+function addAgent(dept, i, home, sym) {
+  agents.push({ id: agents.length, dept, name: NAMES[dept][i], role: ROLES[dept][i % 3], sym, home: { ...home }, x: home.x, y: home.y,
+    state: 'seat', target: null, bubble: null, phase: Math.random() * 6.28, skin: pick(SKIN), hair: pick(HAIR), task: '' });
+}
+function buildFloor() {
+  desks.length = chairs.length = agents.length = 0;
+  const rows = [3.2, 5.6, 8.0, 10.4], cols = [1, 4, 7];
+  let i = 0;
+  rows.forEach((y, r) => cols.forEach(x => {
+    const sym = INS_DEF[r].sym;
+    desks.push({ x, y, w: 2, d: 0.8, mons: 2, sym });
+    const home = { x: x + 1, y: y + 1.25 };
+    chairs.push(home); addAgent('tec', i++, home, sym);
+  }));
+  [11, 13.6, 16.2].forEach((x, k) => {
+    const sym = ['MES', 'MGC', 'MBT'][k];
+    desks.push({ x, y: 1.4, w: 1.8, d: 0.8, mons: 2, sym });
+    const home = { x: x + 0.9, y: 2.65 }; chairs.push(home); addAgent('mac', k, home, sym);
+  });
+  [['rsk', 10.6], ['qnt', 14.6]].forEach(([dept, x0]) => {
+    [[x0, 5.5], [x0 + 1.8, 5.5], [x0 + 0.9, 7.4]].forEach(([x, y], k) => {
+      const sym = INS_DEF[(k + (dept === 'qnt' ? 1 : 0)) % 4].sym;
+      desks.push({ x, y, w: 1.5, d: 0.7, mons: 1, sym });
+      const home = { x: x + 0.75, y: y + 1.15 }; chairs.push(home); addAgent(dept, k, home, sym);
+    });
+  });
+  [40, 90, 140].forEach((a, k) => { const home = seatAt(a); chairs.push(home); addAgent('com', k, home, 'MNQ'); });
+}
+
+// ---------- simulation state
+let S, INS;
+function newSession() {
+  INS = INS_DEF.map(d => ({ ...d, hist: [], open: d.p, trend: rnd(-0.5, 0.5), emaF: d.p, emaS: d.p, tec: 0, qnt: 0, mac: 0, z: 0, tecDir: 0, last: d.p }));
+  S = { simT: 0, nextTick: 0, nextMeeting: 8, realized: 0, fees: 0, killed: false, paused: S ? S.paused : false, speed: S ? S.speed : 1,
+    riskOn: rnd(-0.3, 0.4), nextEvent: null, meeting: null, trades: [], log: [], logSeq: 0, pos: {}, peak: START, decisions: 0, orders: 0, warm: true, lastDecision: '' };
+  buildFloor();
+  scheduleEvent();
+  log('sys', 'Sesión DEMO iniciada · cuenta DEMO-001 con $100,000.00 virtuales');
+  // warm-up: 4 simulated minutes so the floor opens mid-session
+  for (let k = 0; k < 480; k++) {
+    S.simT += TICK; tick();
+    if (k % 48 === 47) decide();
+  }
+  S.nextTick = S.simT; S.nextMeeting = S.simT + 10; S.warm = false;
+  agents.forEach(a => { a.bubble = null; });
+}
+
+function scheduleEvent() { S.nextEvent = { ...pick(EVENTS), at: S.simT + rnd(35, 70) }; }
+function log(dept, text) {
+  S.log.push({ id: ++S.logSeq, t: S.simT, dept, text });
+  if (S.log.length > 300) S.log.shift();
+}
+function say(a, text, dur = 2.6) { if (!S.warm && a) a.bubble = { text, until: S.simT + dur, born: S.simT }; }
+const agentsOf = d => agents.filter(a => a.dept === d);
+
+function unrealOf(ins) { const p = S.pos[ins.sym]; return p ? (ins.p - p.avg) * p.qty * ins.mult : 0; }
+function unreal() { return INS.reduce((s, i) => s + unrealOf(i), 0); }
+function equity() { return START + S.realized - S.fees + unreal(); }
+function notional() { return INS.reduce((s, i) => s + (S.pos[i.sym] ? Math.abs(S.pos[i.sym].qty) * i.p * i.mult : 0), 0); }
+
+function tick() {
+  S.riskOn = clamp(S.riskOn + gauss() * 0.02 - S.riskOn * 0.004);
+  for (const ins of INS) {
+    if (Math.random() < 0.01) ins.trend = rnd(-1, 1);
+    ins.trend = clamp(ins.trend + gauss() * 0.05);
+    const drift = ins.sig * (ins.trend * 0.13 + ins.link * S.riskOn * 0.07);
+    ins.last = ins.p;
+    ins.p = Math.max(ins.tick, Math.round(ins.p * Math.exp(drift + ins.sig * gauss()) / ins.tick) * ins.tick);
+    ins.hist.push(ins.p); if (ins.hist.length > 480) ins.hist.shift();
+    ins.emaF += (ins.p - ins.emaF) * (2 / 9); ins.emaS += (ins.p - ins.emaS) * (2 / 31);
+    ins.tec = clamp((ins.emaF - ins.emaS) / (ins.p * ins.sig * 3));
+    const w = ins.hist.slice(-60), m = w.reduce((a, b) => a + b, 0) / w.length;
+    const sd = Math.sqrt(w.reduce((a, b) => a + (b - m) ** 2, 0) / w.length) || ins.p * ins.sig;
+    ins.z = (ins.p - m) / sd;
+    ins.qnt = clamp(-ins.z / 2.2);
+    ins.mac = clamp(ins.link * S.riskOn * 1.1 + gauss() * 0.03);
+    const nd = ins.tec > 0.35 ? 1 : ins.tec < -0.35 ? -1 : ins.tecDir;
+    if (nd !== ins.tecDir && nd !== 0) {
+      ins.tecDir = nd;
+      const a = pick(agents.filter(x => x.dept === 'tec' && x.sym === ins.sym && x.state === 'seat')) || null;
+      log('tec', `${a ? a.name + ': ' : ''}cambio de sesgo en ${ins.sym} → ${nd > 0 ? 'alcista' : 'bajista'} (EMA 8/30, señal ${sgn(ins.tec)})`);
+      say(a, `${ins.sym} ${nd > 0 ? '▲ alcista' : '▼ bajista'}`, 3.2);
+    }
+  }
+  // risk stops
+  for (const ins of INS) {
+    const u = unrealOf(ins);
+    if (S.pos[ins.sym] && u < -START * 0.006) {
+      const a = agents.find(x => x.dept === 'rsk' && x.role.startsWith('Ejecución'));
+      log('rsk', `${a.name}: stop de riesgo en ${ins.sym}, pérdida ${usd(u)} supera el 0.6% del capital`);
+      say(a, `Stop ${ins.sym}`, 3);
+      execute(ins, 0, 'Stop de riesgo');
+    }
+  }
+  // macro calendar
+  if (S.simT >= S.nextEvent.at) {
+    const ev = S.nextEvent, shock = gauss() * ev.imp * 0.6;
+    S.riskOn = clamp(S.riskOn + shock);
+    INS.forEach(i => { i.p = Math.max(i.tick, Math.round(i.p * Math.exp(i.link * shock * i.sig * 5) / i.tick) * i.tick); });
+    const a = agents.find(x => x.dept === 'mac' && x.role === 'Calendario');
+    log('mac', `${a.name}: dato publicado, ${ev.name}. Sesgo ${shock >= 0 ? 'risk-on' : 'risk-off'} ${sgn(shock)} (régimen ${sgn(S.riskOn)})`);
+    say(a, `${ev.name}: ${shock >= 0 ? 'risk-on' : 'risk-off'}`, 3.5);
+    scheduleEvent();
+  }
+  const eq = equity(); S.peak = Math.max(S.peak, eq);
+  if (!S.warm && Math.random() < 0.3) chatter();
+}
+
+function chatter() {
+  const a = pick(agents.filter(x => x.state === 'seat' && !(x.bubble && x.bubble.until > S.simT)));
+  if (!a) return;
+  const ins = INS.find(i => i.sym === a.sym);
+  const lines = {
+    tec: [`${ins.sym} ${ins.tec > 0 ? '▲' : '▼'} ${sgn(ins.tec)}`, `Volumen ${ins.sym} +${Math.round(rnd(4, 38))}%`, `Soporte ${px(ins, Math.min(...ins.hist.slice(-80)))}`, `Resistencia ${px(ins, Math.max(...ins.hist.slice(-80)))}`],
+    mac: [`Régimen ${sgn(S.riskOn)}`, `Próximo: ${S.nextEvent.name}`, `${ins.sym} sesgo ${sgn(ins.mac)}`],
+    rsk: [`Exposición ${Math.round(notional() / equity() * 100)}%`, `DD ${pct((equity() - S.peak) / S.peak, 2)}`, `Límites OK`],
+    qnt: [`z ${ins.sym} ${ins.z.toFixed(2)}`, `Datos ${ins.sym} OK`, `Hipótesis ${ins.sym} ${ins.qnt > 0 ? 'rebote' : 'giro'}`],
+    com: [`Diario actualizado`, `Revisando ${pick(INS).sym}`, `${Object.keys(S.pos).length} posiciones`],
+  }[a.dept];
+  say(a, pick(lines), 2.4);
+}
+
+function execute(ins, qty, reason) {
+  const cur = S.pos[ins.sym];
+  if (cur && (qty === 0 || Math.sign(qty) !== Math.sign(cur.qty))) {
+    const pnl = (ins.p - cur.avg) * cur.qty * ins.mult, fee = Math.abs(cur.qty) * FEE;
+    S.realized += pnl; S.fees += fee;
+    S.trades.unshift({ t: S.simT, sym: ins.sym, side: cur.qty > 0 ? 'Largo' : 'Corto', qty: Math.abs(cur.qty), entry: cur.avg, exit: ins.p, pnl: pnl - fee - Math.abs(cur.qty) * FEE, reason, ins });
+    if (S.trades.length > 200) S.trades.pop();
+    delete S.pos[ins.sym]; S.orders++;
+  }
+  if (qty !== 0 && !S.pos[ins.sym]) {
+    S.pos[ins.sym] = { qty, avg: ins.p, t: S.simT };
+    S.fees += Math.abs(qty) * FEE; S.orders++;
+  }
+}
+
+function decide() {
+  S.decisions++;
+  const chair = agents.find(a => a.dept === 'com' && a.role === 'Presidencia');
+  if (S.killed) { log('com', `${chair.name}: comité reunido, sin ejecución porque el kill switch está activo`); return; }
+  const eq = equity(), dd = (eq - START) / START;
+  const actions = [];
+  for (const ins of INS) {
+    const score = 0.45 * ins.tec + 0.2 * ins.qnt + 0.35 * ins.mac;
+    ins.score = score;
+    const cur = S.pos[ins.sym], dir = cur ? Math.sign(cur.qty) : 0;
+    const votes = `téc ${sgn(ins.tec)} · macro ${sgn(ins.mac)} · quant ${sgn(ins.qnt)}`;
+    if (dir && (Math.sign(score) !== dir || Math.abs(score) < 0.1)) {
+      const u = unrealOf(ins);
+      execute(ins, 0, 'Decisión del comité');
+      actions.push(`cierra ${ins.sym} (${usd(u, true)})`);
+      log('com', `${chair.name}: cierre de ${dir > 0 ? 'largo' : 'corto'} en ${ins.sym} @ ${px(ins, ins.p)}. Votos: ${votes}`);
+    }
+    if (Math.abs(score) > 0.35 && !S.pos[ins.sym]) {
+      const want = Math.sign(score);
+      let qty = Math.max(1, Math.min(ins.max, Math.round(eq * 0.2 * Math.abs(score) * 1.6 / (ins.p * ins.mult))));
+      const proj = (notional() + qty * ins.p * ins.mult) / eq;
+      const rk = agents.find(a => a.dept === 'rsk' && a.role.startsWith('Límites'));
+      if (dd < -0.02) { log('rsk', `${rk.name}: veto a ${ins.sym}, la sesión pierde ${pct(dd)} (límite −2.00%)`); say(rk, `Veto ${ins.sym}`); continue; }
+      if (proj > 1.5) { log('rsk', `${rk.name}: veto a ${ins.sym}, la exposición iría a ${Math.round(proj * 100)}% (límite 150%)`); say(rk, `Veto ${ins.sym}`); continue; }
+      execute(ins, want * qty, 'Decisión del comité');
+      actions.push(`${want > 0 ? 'LARGO' : 'CORTO'} ${qty} ${ins.sym}`);
+      log('com', `${chair.name}: ${want > 0 ? 'compra' : 'venta'} de ${qty} ${ins.sym} @ ${px(ins, ins.p)}. Votos: ${votes} · riesgo OK (expo ${Math.round(proj * 100)}%)`);
+    }
+  }
+  if (!actions.length) log('com', `${chair.name}: sin cambios, se mantienen ${Object.keys(S.pos).length} posiciones abiertas`);
+  S.lastDecision = actions.length ? actions.join(' · ') : 'Mantener';
+  say(chair, actions.length ? actions[0] : 'Mantener', 3.5);
+}
+
+// ---------- committee meeting choreography
+function convene(manual) {
+  if (S.meeting) return;
+  const reps = ['tec', 'mac', 'rsk', 'qnt'].map(d => {
+    const list = agentsOf(d).filter(a => a.state === 'seat');
+    return d === 'tec' ? pick(list) : list[0];
+  });
+  reps.forEach((a, k) => { a.state = 'walk'; a.target = REP_SEATS[k]; a.task = 'Hacia el comité'; });
+  S.meeting = { phase: 'gather', reps, until: 0 };
+  log('com', manual ? 'Comité convocado manualmente: un representante por departamento' : 'Revisión periódica del comité: un representante por departamento');
+}
+function updateMeeting() {
+  const M = S.meeting; if (!M) return;
+  if (M.phase === 'gather' && M.reps.every(a => a.state === 'meet')) {
+    M.phase = 'discuss'; M.until = S.simT + 4;
+    M.reps.forEach(a => {
+      const ins = pick(INS);
+      say(a, { tec: `${ins.sym} ${sgn(ins.tec)}`, mac: `Régimen ${sgn(S.riskOn)}`, rsk: `Expo ${Math.round(notional() / equity() * 100)}%`, qnt: `z ${ins.sym} ${ins.z.toFixed(1)}` }[a.dept], 3.5);
+    });
+  } else if (M.phase === 'discuss' && S.simT >= M.until) {
+    decide();
+    M.reps.forEach(a => { a.state = 'walk'; a.target = { ...a.home, back: true }; a.task = 'Volviendo a su mesa'; });
+    M.phase = 'return';
+  } else if (M.phase === 'return' && M.reps.every(a => a.state === 'seat')) {
+    S.meeting = null; S.nextMeeting = S.simT + MEET_EVERY;
+  }
+}
+function moveAgents(dt) {
+  for (const a of agents) {
+    if (a.state !== 'walk') continue;
+    const dx = a.target.x - a.x, dy = a.target.y - a.y, d = Math.hypot(dx, dy), step = 2.6 * dt;
+    if (d <= step) { a.x = a.target.x; a.y = a.target.y; a.state = a.target.back ? 'seat' : 'meet'; a.task = ''; }
+    else { a.x += dx / d * step; a.y += dy / d * step; }
+  }
+}
+
+function advance(dt) {
+  S.simT += dt;
+  while (S.simT >= S.nextTick) { tick(); S.nextTick += TICK; }
+  moveAgents(dt);
+  if (!S.meeting && S.simT >= S.nextMeeting) convene(false);
+  updateMeeting();
+}
+
+// ---------- canvas
+const cv = $('#cv'), ctx = cv.getContext('2d');
+const W = 1000, H = 620, OX = 420, OY = 116;
+const iso = (x, y, z = 0) => [OX + (x - y) * 32, OY + (x + y) * 16 - z];
+let sel = null, hover = null; // sel: {type:'agent'|'dept', id}
+function poly(pts, fill, stroke) {
+  ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
+}
+function box(x, y, w, d, h, top, left, right, z0 = 0) {
+  const a = iso(x, y + d, z0), b = iso(x + w, y + d, z0), c = iso(x + w, y, z0);
+  const a2 = iso(x, y + d, z0 + h), b2 = iso(x + w, y + d, z0 + h), c2 = iso(x + w, y, z0 + h), d2 = iso(x, y, z0 + h);
+  poly([a, b, b2, a2], left); poly([b, c, c2, b2], right); poly([d2, c2, b2, a2], top);
+}
+function zoneAt(cx, cy) { if (cx < 10) return 'tec'; if (cy < 5) return 'mac'; if (cy < 10) return cx < 14 ? 'rsk' : 'qnt'; return 'com'; }
+
+function drawWalls(t) {
+  const WH = 96;
+  poly([iso(0, 0), iso(GX, 0), iso(GX, 0, WH), iso(0, 0, WH)], '#3a433c');
+  poly([iso(0, 0), iso(0, GY), iso(0, GY, WH), iso(0, 0, WH)], '#2f3731');
+  poly([iso(0, 0, WH), iso(GX, 0, WH), iso(GX, 0, WH + 4), iso(0, 0, WH + 4)], '#55605a');
+  poly([iso(0, 0, WH), iso(0, GY, WH), iso(0, GY, WH + 4), iso(0, 0, WH + 4)], '#4a544e');
+  // market board on the back wall
+  const [bx, by] = iso(1, 0, 86), bw = 7.8 * 32, bh = 66, mnq = INS[0];
+  ctx.save(); ctx.transform(1, 0.5, 0, 1, bx, by);
+  ctx.fillStyle = '#121915'; ctx.fillRect(0, 0, bw, bh);
+  ctx.strokeStyle = 'rgba(168,196,108,.55)'; ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, bw - 1, bh - 1);
+  ctx.fillStyle = '#a8c46c'; ctx.font = '600 6.5px "JetBrains Mono", monospace'; ctx.fillText('EL PULSO DEL MERCADO', 9, 13);
+  ctx.fillStyle = '#eef2ea'; ctx.font = '700 14px Archivo, sans-serif'; ctx.fillText('Tu trading floor.', 9, 31);
+  ctx.fillStyle = '#93a08f'; ctx.font = '600 11px Archivo, sans-serif'; ctx.fillText('Todo conectado.', 9, 46);
+  ctx.fillStyle = '#93a08f'; ctx.font = '500 7px "JetBrains Mono", monospace'; ctx.fillText(`MNQ ${px(mnq, mnq.p)}`, 9, 59);
+  const h = mnq.hist.slice(-140), lo = Math.min(...h), hi = Math.max(...h), cx0 = 128, cw = bw - cx0 - 10;
+  ctx.beginPath();
+  h.forEach((v, i) => { const X = cx0 + i / (h.length - 1) * cw, Y = 56 - (v - lo) / ((hi - lo) || 1) * 40; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+  ctx.strokeStyle = mnq.p >= mnq.open ? '#57d29b' : '#f1716a'; ctx.lineWidth = 1.4; ctx.stroke();
+  ctx.restore();
+  // stripes
+  ctx.save(); ctx.transform(1, 0.5, 0, 1, ...iso(9.6, 0, 86));
+  ['#6fae5a', '#e0a03f', '#de5f62', '#9480dc', '#4fb2d2'].forEach((c, k) => { ctx.fillStyle = c; ctx.fillRect(k * 9, 0, 5, 66); });
+  ctx.restore();
+  // ticker on the left wall
+  const [tx, ty] = iso(0, 12.4, 64), tw = 9.6 * 32;
+  ctx.save(); ctx.transform(1, -0.5, 0, 1, tx, ty);
+  ctx.fillStyle = '#0e1210'; ctx.fillRect(0, 0, tw, 20);
+  ctx.beginPath(); ctx.rect(0, 0, tw, 20); ctx.clip();
+  ctx.font = '600 10px "JetBrains Mono", monospace';
+  const parts = INS.map(i => ({ s: `${i.sym} ${px(i, i.p)} ${pct(i.p / i.open - 1)}`, up: i.p >= i.open }));
+  const seg = parts.map(p => p.s).join('   ·   ') + '   ·   ';
+  const segW = ctx.measureText(seg).width, off = reduceMotion ? 0 : (t * 28) % segW;
+  for (let rep = 0; rep < 3; rep++) {
+    let x = 8 - off + rep * segW;
+    parts.forEach(p => { ctx.fillStyle = p.up ? '#57d29b' : '#f1716a'; ctx.fillText(p.s, x, 14); x += ctx.measureText(p.s + '   ·   ').width; });
+  }
+  ctx.restore();
+}
+function drawFloor() {
+  for (let y = 0; y < GY; y++) for (let x = 0; x < GX; x++) {
+    const z = DEPTS[zoneAt(x, y)].floor;
+    poly([iso(x, y), iso(x + 1, y), iso(x + 1, y + 1), iso(x, y + 1)], z[(x + y) & 1]);
+  }
+  const labels = [['tec', 0.7, 2.25, 'ANÁLISIS TÉCNICO'], ['mac', 10.4, 0.25, 'MACROECONOMÍA'], ['rsk', 10.3, 5.05, 'RIESGO'], ['qnt', 14.3, 5.05, 'QUANT'], ['com', 10.4, 10.2, 'COMITÉ']];
+  labels.forEach(([d, x, y, txt]) => {
+    ctx.save(); ctx.transform(1, 0.5, -1, 0.5, ...iso(x, y));
+    const on = sel && sel.type === 'dept' && sel.id === d;
+    ctx.fillStyle = on ? DEPTS[d].color : 'rgba(40,50,44,.32)'; ctx.font = '800 15px Archivo, sans-serif';
+    ctx.fillText(txt, 0, 18); ctx.restore();
+  });
+  const part = (pts) => { poly(pts, 'rgba(255,255,255,.28)'); ctx.beginPath(); ctx.moveTo(...pts[3]); ctx.lineTo(...pts[2]); ctx.strokeStyle = 'rgba(80,95,90,.55)'; ctx.lineWidth = 1.5; ctx.stroke(); };
+  const PH = 16;
+  part([iso(10, 0), iso(10, GY), iso(10, GY, PH), iso(10, 0, PH)]);
+  part([iso(10, 5), iso(GX, 5), iso(GX, 5, PH), iso(10, 5, PH)]);
+  part([iso(10, 10), iso(GX, 10), iso(GX, 10, PH), iso(10, 10, PH)]);
+  part([iso(14, 5), iso(14, 10), iso(14, 10, PH), iso(14, 5, PH)]);
+}
+function drawDesk(dk, t) {
+  const H0 = 15;
+  box(dk.x, dk.y, dk.w, dk.d, 3, '#f6f7f3', '#d3d7d0', '#c2c7bf', H0 - 3);
+  // legs
+  [[dk.x + 0.06, dk.y + dk.d - 0.06], [dk.x + dk.w - 0.06, dk.y + dk.d - 0.06]].forEach(([x, y]) => { const [a, b] = iso(x, y); ctx.fillStyle = '#9aa29a'; ctx.fillRect(a - 1, b - H0 + 3, 2, H0 - 3); });
+  const ins = INS.find(i => i.sym === dk.sym), h = ins.hist.slice(-28), lo = Math.min(...h), hi = Math.max(...h);
+  const up = h[h.length - 1] >= h[0];
+  for (let m = 0; m < dk.mons; m++) {
+    const mw = dk.mons === 2 ? 0.72 : 0.8, cx = dk.x + (dk.mons === 2 ? (m ? 0.73 : 0.27) * dk.w : dk.w / 2), my = dk.y + 0.18;
+    const A = iso(cx - mw / 2, my, H0 + 3), B = iso(cx + mw / 2, my, H0 + 3), MH = 19;
+    const st = iso(cx, my, H0); ctx.fillStyle = '#3a403c'; ctx.fillRect(st[0] - 1.5, st[1] - 4, 3, 4);
+    poly([A, B, [B[0], B[1] - MH], [A[0], A[1] - MH]], '#1d2621', '#11161300');
+    ctx.beginPath();
+    h.forEach((v, i) => {
+      const u = 0.1 + 0.8 * i / (h.length - 1), X = A[0] + (B[0] - A[0]) * u, Yb = A[1] + (B[1] - A[1]) * u;
+      const Y = Yb - 4 - (v - lo) / ((hi - lo) || 1) * (MH - 8);
+      i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+    });
+    ctx.strokeStyle = up ? '#6fe0a9' : '#ff8a80'; ctx.lineWidth = 1.2; ctx.stroke();
+  }
+  box(dk.x + dk.w / 2 - 0.25, dk.y + 0.48, 0.5, 0.14, 1, '#4a514c', '#3a403c', '#323833', H0);
+}
+function drawChair(c) { box(c.x - 0.22, c.y - 0.05, 0.44, 0.44, 8, '#2f6f6a', '#285e5a', '#214f4b'); box(c.x - 0.22, c.y + 0.3, 0.44, 0.1, 12, '#2a6560', '#245752', '#1d4744', 8); }
+function drawTable() {
+  const [cx, cy] = iso(TABLE.x, TABLE.y), rx = TABLE.r * 45.25, ry = TABLE.r * 22.6, h = 15;
+  ctx.fillStyle = '#6f5843';
+  ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI); ctx.lineTo(cx - rx, cy - h); ctx.ellipse(cx, cy - h, rx, ry, 0, Math.PI, 0, true); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#a7876a'; ctx.beginPath(); ctx.ellipse(cx, cy - h, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.ellipse(cx, cy - h, rx * 0.6, ry * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+  if (S.meeting && S.meeting.phase === 'discuss') {
+    ctx.fillStyle = '#4fb2d2'; ctx.globalAlpha = 0.5 + 0.3 * Math.sin(performance.now() / 200);
+    ctx.beginPath(); ctx.ellipse(cx, cy - h, rx * 0.35, ry * 0.35, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+  }
+}
+function drawPlant(p) {
+  box(p.x - 0.2, p.y - 0.2, 0.4, 0.4, 12, '#8a6a52', '#6e5442', '#5d4637');
+  const [x, y] = iso(p.x, p.y, 12);
+  [['#3f8f4f', 0, -12, 13], ['#4fa860', -7, -6, 9], ['#4fa860', 7, -7, 9], ['#62bb72', 0, -20, 8]].forEach(([c, dx, dy, r]) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x + dx, y + dy, r, 0, Math.PI * 2); ctx.fill(); });
+}
+function agentScreen(a) { return iso(a.x, a.y); }
+function drawAgent(a, t) {
+  const [x, y] = agentScreen(a), walking = a.state === 'walk', seated = !walking;
+  const bob = reduceMotion ? 0 : walking ? Math.abs(Math.sin(t * 9 + a.phase)) * 2 : Math.sin(t * 1.6 + a.phase) * 0.7;
+  const base = seated ? y - 9 : y;
+  const isSel = sel && sel.type === 'agent' && sel.id === a.id, inDept = sel && sel.type === 'dept' && sel.id === a.dept;
+  if (isSel || inDept || hover === a) {
+    ctx.save(); ctx.strokeStyle = isSel ? '#a8c46c' : inDept ? DEPTS[a.dept].color : 'rgba(30,40,35,.5)'; ctx.lineWidth = isSel ? 2.5 : 2;
+    if (inDept && !isSel) ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.ellipse(x, y, 15, 7.5, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+  }
+  if (walking) {
+    ctx.fillStyle = 'rgba(0,0,0,.15)'; ctx.beginPath(); ctx.ellipse(x, y, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+    const sw = reduceMotion ? 0 : Math.sin(t * 9 + a.phase) * 3;
+    ctx.fillStyle = '#2d3640'; ctx.fillRect(x - 4 + sw * 0.4, y - 10, 3, 10); ctx.fillRect(x + 1 - sw * 0.4, y - 10, 3, 10);
+  }
+  const top = base - 17 - (walking ? 10 : 0) - bob;
+  ctx.fillStyle = DEPTS[a.dept].color;
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 6.5, top, 13, 17, 4) : ctx.rect(x - 6.5, top, 13, 17); ctx.fill();
+  ctx.fillStyle = a.skin; ctx.beginPath(); ctx.arc(x, top - 5, 5.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = a.hair; ctx.beginPath(); ctx.arc(x, top - 6.2, 5.8, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
+  a._hit = [x - 9, top - 12, 18, y - top + 14];
+}
+function drawBubble(a) {
+  if (!a.bubble || a.bubble.until < S.simT) return;
+  const [x, y] = agentScreen(a), age = S.simT - a.bubble.born, left = a.bubble.until - S.simT;
+  const alpha = Math.min(1, age * 4, left * 2);
+  ctx.save(); ctx.globalAlpha = alpha; ctx.font = '600 10px "JetBrains Mono", monospace';
+  const tw = ctx.measureText(a.bubble.text).width + 12, bx = Math.max(4, Math.min(W - tw - 4, x - tw / 2)), by = y - (a.state === 'walk' ? 70 : 62);
+  ctx.fillStyle = '#ffffff'; ctx.strokeStyle = DEPTS[a.dept].color; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, tw, 18, 5) : ctx.rect(bx, by, tw, 18); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - 4, by + 18); ctx.lineTo(x, by + 23); ctx.lineTo(x + 4, by + 18); ctx.fill();
+  ctx.fillStyle = '#18201b'; ctx.fillText(a.bubble.text, bx + 6, by + 12.5); ctx.restore();
+}
+function drawTooltip(a) {
+  const [x, y] = agentScreen(a), t1 = a.name, t2 = `${DEPTS[a.dept].short} · ${a.role}`;
+  ctx.save(); ctx.font = '600 11px Archivo, sans-serif'; const w1 = ctx.measureText(t1).width;
+  ctx.font = '500 10px Archivo, sans-serif'; const w = Math.max(w1, ctx.measureText(t2).width) + 16;
+  const bx = Math.max(4, Math.min(W - w - 4, x + 14)), by = y - 20;
+  ctx.fillStyle = 'rgba(16,19,17,.92)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, w, 32, 6) : ctx.rect(bx, by, w, 32); ctx.fill();
+  ctx.fillStyle = '#e6eae2'; ctx.font = '600 11px Archivo, sans-serif'; ctx.fillText(t1, bx + 8, by + 13);
+  ctx.fillStyle = '#9aa598'; ctx.font = '500 10px Archivo, sans-serif'; ctx.fillText(t2, bx + 8, by + 26); ctx.restore();
+}
+const PLANTS = [{ x: 9.5, y: 0.6 }, { x: 17.5, y: 4.4 }, { x: 9.5, y: 12.5 }, { x: 0.6, y: 12.4 }];
+function render(t) {
+  const k = cv.width / W; ctx.setTransform(k, 0, 0, k, 0, 0);
+  ctx.fillStyle = '#cfd5d9'; ctx.fillRect(0, 0, W, H);
+  drawWalls(t); drawFloor();
+  const items = [];
+  desks.forEach(d => items.push({ k: d.x + d.w / 2 + d.y + d.d / 2, f: () => drawDesk(d, t) }));
+  chairs.forEach(c => items.push({ k: c.x + c.y - 0.05, f: () => drawChair(c) }));
+  PLANTS.forEach(p => items.push({ k: p.x + p.y, f: () => drawPlant(p) }));
+  items.push({ k: 25.5, f: drawTable });
+  agents.forEach(a => items.push({ k: a.state === 'meet' && a.target && a.target.key ? a.target.key : a.x + a.y, f: () => drawAgent(a, t) }));
+  items.sort((a, b) => a.k - b.k).forEach(i => i.f());
+  agents.forEach(drawBubble);
+  if (hover) drawTooltip(hover);
+}
+function resizeCanvas() {
+  const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.max(320, Math.round(r.width * dpr));
+  if (cv.width !== w) { cv.width = w; cv.height = Math.round(w * H / W); }
+}
+function hitAgent(e) {
+  const r = cv.getBoundingClientRect(), lx = (e.clientX - r.left) * W / r.width, ly = (e.clientY - r.top) * H / r.height;
+  let best = null;
+  for (const a of agents) { const h = a._hit; if (h && lx >= h[0] && lx <= h[0] + h[2] && ly >= h[1] && ly <= h[1] + h[3]) { if (!best || a.y + a.x > best.y + best.x) best = a; } }
+  return best;
+}
+cv.addEventListener('pointermove', e => { hover = hitAgent(e); cv.style.cursor = hover ? 'pointer' : 'default'; });
+cv.addEventListener('pointerleave', () => { hover = null; });
+cv.addEventListener('click', e => { const a = hitAgent(e); select(a ? { type: 'agent', id: a.id } : null); });
+
+// ---------- UI
+const fmtDept = d => (DEPTS[d] || SYS);
+function select(s) { sel = s; renderChip(); syncSelections(); }
+function renderChip() {
+  const chip = $('#chip');
+  if (!sel) { chip.hidden = true; return; }
+  let title, body;
+  if (sel.type === 'agent') {
+    const a = agents[sel.id], ins = INS.find(i => i.sym === a.sym);
+    title = `${a.name} · ${DEPTS[a.dept].name}`;
+    body = `${a.role} · ${statusOf(a)}${a.dept === 'tec' || a.dept === 'qnt' ? ` · ${ins.sym} ${px(ins, ins.p)}` : ''}`;
+  } else {
+    const d = DEPTS[sel.id]; title = d.name; body = `${agentsOf(sel.id).length} agentes · ${deptStat(sel.id)}`;
+  }
+  chip.innerHTML = `<div><b>${esc(title)}</b><span class="muted">${esc(body)}</span></div><button type="button" aria-label="Cerrar">×</button>`;
+  chip.querySelector('button').onclick = () => select(null);
+  chip.hidden = false;
+}
+function statusOf(a) {
+  if (a.state === 'walk') return a.task;
+  if (a.state === 'meet') return 'En el comité';
+  if (a.dept === 'com') return S.meeting ? 'Presidiendo la revisión' : 'Diario de decisiones';
+  if (a.dept === 'mac') return a.role === 'Calendario' ? `Vigilando ${S.nextEvent.name}` : 'Leyendo el contexto';
+  if (a.dept === 'rsk') return 'Monitorizando límites';
+  return `Analizando ${a.sym}`;
+}
+function deptStat(d) {
+  const eq = equity();
+  if (d === 'tec') return `${INS.filter(i => Math.abs(i.tec) > 0.35).length}/4 señales activas`;
+  if (d === 'mac') return `Régimen ${sgn(S.riskOn)}`;
+  if (d === 'rsk') return `Expo ${Math.round(notional() / eq * 100)}% · límite 150%`;
+  if (d === 'qnt') { const m = INS.reduce((b, i) => Math.abs(i.z) > Math.abs(b.z) ? i : b); return `z máx ${m.sym} ${m.z.toFixed(2)}`; }
+  return `${S.decisions} revisiones · ${S.orders} órdenes`;
+}
+
+// sidebar: build once, update text
+const deptList = $('#deptList'), agentList = $('#agentList'), pulseList = $('#pulseList');
+function buildSidebar() {
+  deptList.innerHTML = Object.entries(DEPTS).map(([k, d]) => `
+    <button class="dept" type="button" data-dept="${k}">
+      <div class="dept-t"><span class="dot" style="background:${d.color}"></span>${d.name}</div>
+      <p>${d.desc}</p>
+      <div class="dept-f"><span>${agentsOf(k).length} agentes</span><span class="stat" data-stat="${k}"></span><span>DEMO</span></div>
+    </button>`).join('');
+  agentList.innerHTML = agents.map(a => `
+    <button class="agent" type="button" data-agent="${a.id}">
+      <span class="dot" style="background:${DEPTS[a.dept].color}"></span>
+      <span><b>${a.name}</b><span class="r">${DEPTS[a.dept].short} · ${a.role}</span></span>
+      <span class="st" data-st="${a.id}"></span>
+    </button>`).join('');
+  pulseList.innerHTML = INS.map(i => `<div class="pulse-row"><b>${i.sym}</b><span class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i.name}</span><span class="mono" data-pulse="${i.sym}"></span></div>`).join('');
+  $('#legend').innerHTML = Object.values(DEPTS).map(d => `<span><span class="dot" style="background:${d.color}"></span>${d.name}</span>`).join('');
+}
+deptList.addEventListener('click', e => { const b = e.target.closest('[data-dept]'); if (b) select(sel && sel.type === 'dept' && sel.id === b.dataset.dept ? null : { type: 'dept', id: b.dataset.dept }); });
+agentList.addEventListener('click', e => { const b = e.target.closest('[data-agent]'); if (b) select({ type: 'agent', id: +b.dataset.agent }); });
+function syncSelections() {
+  deptList.querySelectorAll('.dept').forEach(b => b.classList.toggle('sel', !!sel && sel.type === 'dept' && sel.id === b.dataset.dept));
+  agentList.querySelectorAll('.agent').forEach(b => b.classList.toggle('sel', !!sel && sel.type === 'agent' && sel.id === +b.dataset.agent));
+}
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => setSub(b.dataset.sub)));
+function setSub(s) {
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.sub === s)));
+  $('#subSala').hidden = s !== 'sala'; $('#subAgentes').hidden = s !== 'agentes'; $('#subDeptos').hidden = s !== 'deptos';
+  try { localStorage.setItem('tf-sub', s); } catch (e) {}
+}
+
+// views
+const VIEWS = ['sala', 'analisis', 'operaciones', 'actividad'];
+let view = 'sala';
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => setView(b.dataset.view, true)));
+function setView(v, push) {
+  if (!VIEWS.includes(v)) v = 'sala';
+  view = v;
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.view === v)));
+  VIEWS.forEach(x => { $('#v-' + x).hidden = x !== v; });
+  if (push) { try { history.replaceState(null, '', '#' + v); } catch (e) {} }
+  if (v === 'sala') requestAnimationFrame(resizeCanvas);
+  updateUI(true);
+}
+
+let feedFilter = 'all', feedShown = 0;
+function buildFilters() {
+  const opts = [['all', 'Todos', null], ...Object.entries(DEPTS).map(([k, d]) => [k, d.short, d.color]), ['sys', 'Sistema', SYS.color]];
+  $('#filters').innerHTML = opts.map(([k, n, c]) => `<button type="button" data-f="${k}" aria-pressed="${k === feedFilter}">${c ? `<span class="dot" style="background:${c}"></span>` : ''}${n}</button>`).join('');
+}
+$('#filters').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (!b) return; feedFilter = b.dataset.f; buildFilters(); feedShown = -1; updateUI(true); });
+
+function spark(ins) {
+  const h = ins.hist.slice(-240), lo = Math.min(...h), hi = Math.max(...h), w = 300, hh = 84;
+  const pts = h.map((v, i) => `${(i / (h.length - 1) * w).toFixed(1)},${(hh - 6 - (v - lo) / ((hi - lo) || 1) * (hh - 14)).toFixed(1)}`);
+  const c = ins.p >= ins.open ? 'var(--up)' : 'var(--down)', last = pts[pts.length - 1].split(',');
+  const pos = S.pos[ins.sym], ey = pos ? (hh - 6 - (pos.avg - lo) / ((hi - lo) || 1) * (hh - 14)) : null;
+  return `<svg class="spark" viewBox="0 0 ${w} ${hh}" preserveAspectRatio="none" aria-hidden="true">
+    ${[0.25, 0.5, 0.75].map(f => `<line x1="0" x2="${w}" y1="${hh * f}" y2="${hh * f}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join('')}
+    <polygon points="0,${hh} ${pts.join(' ')} ${w},${hh}" fill="${c}" opacity=".10"/>
+    ${ey !== null && ey > 0 && ey < hh ? `<line x1="0" x2="${w}" y1="${ey}" y2="${ey}" stroke="var(--muted)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>` : ''}
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${c}" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+    <circle cx="${last[0]}" cy="${last[1]}" r="3" fill="${c}"/></svg>`;
+}
+function barRow(label, v) {
+  const c = v >= 0 ? 'var(--up)' : 'var(--down)', w = Math.abs(v) * 50;
+  return `<span class="muted">${label}</span><div class="bar"><i></i><span style="background:${c};${v >= 0 ? 'left:50%' : `left:${50 - w}%`};width:${w}%"></span></div><span class="mono" style="text-align:right">${sgn(v)}</span>`;
+}
+
+function updateUI(force) {
+  const eq = equity(), pnl = eq - START, u = unreal(), not = notional(), open = INS.filter(i => S.pos[i.sym]);
+  $('#kEq').textContent = usd(eq);
+  $('#kEqSub').textContent = `Balance ${usd(START + S.realized - S.fees)}`;
+  const kp = $('#kPnl'); kp.textContent = `${usd(pnl, true)} ${pnl >= 0 ? '↗' : '↘'}`; kp.className = 'val ' + (pnl >= 0 ? 'up' : 'down');
+  $('#kExp').textContent = (not / eq * 100).toFixed(2) + '%';
+  $('#kExpSub').textContent = open.length ? `${usd(not)} · ${open.map(i => i.sym).join(' ')}` : 'Sin posiciones';
+  $('#kDec').textContent = S.decisions;
+  $('#kDecSub').textContent = 'Última: ' + (S.lastDecision || '—');
+  $('#aBal').textContent = usd(START + S.realized - S.fees);
+  const au = $('#aUnr'); au.textContent = usd(u, true); au.className = u >= 0 ? 'up' : 'down';
+  $('#aFee').textContent = usd(-S.fees);
+  $('#aDD').textContent = pct((eq - S.peak) / S.peak, 2, false);
+  $('#clock').textContent = clock(S.simT) + ' ET';
+  $('#nextMeet').textContent = S.meeting ? 'Comité reunido' : `Próximo comité en ${Math.max(0, Math.ceil((S.nextMeeting - S.simT)))} s`;
+  const pill = $('#statePill');
+  pill.className = 'pill ' + (S.killed ? 'killed' : S.paused ? 'paused' : 'live');
+  pill.textContent = S.killed ? 'KILL SWITCH' : S.paused ? 'EN PAUSA' : 'EN VIVO · DEMO';
+  $('#killBanner').hidden = !S.killed;
+
+  // sidebar
+  deptList.querySelectorAll('[data-stat]').forEach(el => { el.textContent = deptStat(el.dataset.stat); });
+  agentList.querySelectorAll('[data-st]').forEach(el => { el.textContent = statusOf(agents[+el.dataset.st]); });
+  pulseList.querySelectorAll('[data-pulse]').forEach(el => { const i = INS.find(x => x.sym === el.dataset.pulse), ch = i.p / i.open - 1; el.innerHTML = `${px(i, i.p)} <span class="${ch >= 0 ? 'up' : 'down'}">${pct(ch)}</span>`; });
+  $('#riskVal').textContent = sgn(S.riskOn);
+  const rb = $('#riskBar'), rw = Math.abs(S.riskOn) * 50;
+  rb.style.cssText = `left:${S.riskOn >= 0 ? 50 : 50 - rw}%;width:${rw}%;background:${S.riskOn >= 0 ? 'var(--up)' : 'var(--down)'}`;
+  $('#nextEv').innerHTML = `<span class="muted">Próximo dato:</span> ${esc(S.nextEvent.name)} <span class="mono muted">en ${Math.max(0, Math.ceil(S.nextEvent.at - S.simT))} s</span>`;
+  if (sel) renderChip();
+
+  if (view === 'analisis') {
+    $('#insCards').innerHTML = INS.map(i => {
+      const ch = i.p / i.open - 1, p = S.pos[i.sym], comp = 0.45 * i.tec + 0.2 * i.qnt + 0.35 * i.mac;
+      const side = p ? (p.qty > 0 ? `<span class="side-pill long">LARGO ${p.qty}</span>` : `<span class="side-pill short">CORTO ${-p.qty}</span>`) : '<span class="side-pill flat">SIN POSICIÓN</span>';
+      return `<article class="card ins">
+        <div class="ins-h"><div><b>${i.sym}</b><small>${i.name}</small></div><div class="ins-px"><div>${px(i, i.p)}</div><span class="${ch >= 0 ? 'up' : 'down'}" style="font-size:12px">${pct(ch)}</span></div></div>
+        ${spark(i)}
+        <div class="bars">${barRow('Técnico', i.tec)}${barRow('Macro', i.mac)}${barRow('Quant', i.qnt)}${barRow('<b style="color:var(--fg)">Compuesto</b>', comp)}</div>
+        <div class="ins-f">${side}<span class="muted mono">${p ? `entrada ${px(i, p.avg)} · ${usd(unrealOf(i), true)}` : `umbral de entrada ±0.35`}</span></div>
+      </article>`;
+    }).join('');
+  }
+  if (view === 'operaciones') {
+    $('#posCount').textContent = `${open.length} abiertas`;
+    $('#posTbl').innerHTML = open.length ? `<table><thead><tr><th>Símbolo</th><th>Lado</th><th class="n">Contratos</th><th class="n">Precio medio</th><th class="n">Último</th><th class="n">Nocional</th><th class="n">P&amp;L no realizado</th></tr></thead><tbody>${open.map(i => { const p = S.pos[i.sym], uu = unrealOf(i); return `<tr><td>${i.sym}</td><td><span class="side-pill ${p.qty > 0 ? 'long' : 'short'}">${p.qty > 0 ? 'LARGO' : 'CORTO'}</span></td><td class="n">${Math.abs(p.qty)}</td><td class="n">${px(i, p.avg)}</td><td class="n">${px(i, i.p)}</td><td class="n">${usd(Math.abs(p.qty) * i.p * i.mult)}</td><td class="n ${uu >= 0 ? 'up' : 'down'}">${usd(uu, true)}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty">No hay posiciones abiertas. El comité abrirá la siguiente cuando la señal compuesta supere ±0.35.</div>';
+    $('#trCount').textContent = `${S.trades.length} en la sesión`;
+    $('#trTbl').innerHTML = S.trades.length ? `<table><thead><tr><th>Cierre</th><th>Símbolo</th><th>Lado</th><th class="n">Contratos</th><th class="n">Entrada</th><th class="n">Salida</th><th class="n">P&amp;L neto</th><th>Motivo</th></tr></thead><tbody>${S.trades.slice(0, 60).map(tr => `<tr><td>${clock(tr.t)}</td><td>${tr.sym}</td><td>${tr.side}</td><td class="n">${tr.qty}</td><td class="n">${px(tr.ins, tr.entry)}</td><td class="n">${px(tr.ins, tr.exit)}</td><td class="n ${tr.pnl >= 0 ? 'up' : 'down'}">${usd(tr.pnl, true)}</td><td class="txt">${tr.reason}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Todavía no hay operaciones cerradas en esta sesión.</div>';
+  }
+  if (view === 'actividad' && (force || feedShown !== S.logSeq)) {
+    feedShown = S.logSeq;
+    const items = S.log.filter(l => feedFilter === 'all' || l.dept === feedFilter).slice().reverse();
+    $('#feed').innerHTML = items.length ? items.map(l => { const d = fmtDept(l.dept); return `<div class="ev"><time>${clock(l.t)}</time><span class="dot" style="background:${d.color}"></span><span><em>${d.short || d.name}</em>${esc(l.text)}</span></div>`; }).join('') : '<div class="empty">Sin eventos para este filtro.</div>';
+  }
+}
+
+// controls
+$('#bPause').addEventListener('click', () => { S.paused = !S.paused; $('#bPause').textContent = S.paused ? 'Reanudar' : 'Pausar'; $('#bPause').setAttribute('aria-pressed', String(S.paused)); log('sys', S.paused ? 'Simulación en pausa' : 'Simulación reanudada'); updateUI(true); });
+$('#bCom').addEventListener('click', () => { if (S.meeting) return; convene(true); updateUI(true); });
+$('#bReset').addEventListener('click', () => { newSession(); sel = null; renderChip(); buildSidebar(); syncSelections(); updateUI(true); });
+document.querySelectorAll('.speed button').forEach(b => b.addEventListener('click', () => { S.speed = +b.dataset.speed; document.querySelectorAll('.speed button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }));
+let killArmed = 0;
+$('#bKill').addEventListener('click', () => {
+  const b = $('#bKill');
+  if (S.killed) return;
+  if (!killArmed) { killArmed = setTimeout(() => { killArmed = 0; b.classList.remove('armed'); b.textContent = 'Kill switch'; }, 3500); b.classList.add('armed'); b.textContent = 'Confirmar: cerrar todo'; return; }
+  clearTimeout(killArmed); killArmed = 0; b.classList.remove('armed'); b.textContent = 'Kill switch';
+  const n = Object.keys(S.pos).length;
+  INS.forEach(i => { if (S.pos[i.sym]) execute(i, 0, 'Kill switch'); });
+  S.killed = true; log('sys', `Kill switch activado: ${n} posiciones cerradas a mercado, trading detenido`);
+  updateUI(true);
+});
+$('#bRearm').addEventListener('click', () => { S.killed = false; log('sys', 'Trading rearmado: el comité vuelve a poder ejecutar órdenes'); updateUI(true); });
+
+// boot
+newSession(); buildSidebar(); buildFilters();
+try { const s = localStorage.getItem('tf-sub'); setSub(['sala', 'agentes', 'deptos'].includes(s) ? s : 'deptos'); } catch (e) { setSub('deptos'); }
+setView((location.hash || '').slice(1) || 'sala', false);
+window.addEventListener('hashchange', () => setView(location.hash.slice(1), false));
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+let lastT = performance.now(), lastUI = 0;
+function frame(now) {
+  const dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (!S.paused) advance(dt * S.speed);
+  if (view === 'sala') render(now / 1000);
+  if (now - lastUI > 450) { lastUI = now; updateUI(false); }
+  requestAnimationFrame(frame);
+}
+render(0); updateUI(true);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
