@@ -1066,7 +1066,7 @@ function goldPanel() {
   lv.sort((a, b) => b.v - a.v).forEach(l => { const m = merged.find(x => Math.abs(x.v - l.v) < 0.005 && x.c === l.c); if (m) m.t = m.t.replace(/^(\S+)/, `$1/${l.t.split(' ')[0]}`); else merged.push({ ...l }); });
   let lo = Math.min(...cs.map(c => c.l), ...merged.map(l => l.v)), hi = Math.max(...cs.map(c => c.h), ...merged.map(l => l.v));
   const span = (hi - lo) || 1; lo -= span * 0.04; hi += span * 0.04;
-  const y = v => pad + (hi - v) / (hi - lo) * (VH - 2 * pad), step = CW / cs.length, bw = Math.max(3, step * 0.6);
+  const y = v => pad + (hi - v) / (hi - lo) * (VH - 2 * pad), step = CW / Math.max(cs.length, 33), bw = Math.max(3, step * 0.6);
   const candles = cs.map((c, i) => { const x = i * step + step / 2, up = c.c >= c.o, col = up ? 'var(--up)' : 'var(--down)', last = i === cs.length - 1;
     return `<line x1="${x}" x2="${x}" y1="${y(c.h)}" y2="${y(c.l)}" stroke="${col}" stroke-width="1" opacity="${last ? 0.6 : 1}"/><rect x="${x - bw / 2}" y="${y(Math.max(c.o, c.c))}" width="${bw}" height="${Math.max(1, Math.abs(y(c.o) - y(c.c)))}" fill="${col}" opacity="${last ? 0.5 : 0.9}"/>`; }).join('');
   let lastY = -99;
