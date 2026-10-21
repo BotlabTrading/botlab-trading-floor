@@ -1002,7 +1002,7 @@ function spark(ins) {
 // ---------- MT5 en vivo: solo existe cuando la web se abre desde el puente (bridge/mt5_bridge.py)
 async function pollLive() {
   let d = null;
-  try { const r = await fetch('api/state', { cache: 'no-store' }); if (r.ok && (r.headers.get('content-type') || '').includes('json')) d = await r.json(); } catch (e) {}
+  try { const ac = new AbortController(), to = setTimeout(() => ac.abort(), 5000); const r = await fetch('api/state', { cache: 'no-store', signal: ac.signal }); clearTimeout(to); if (r.ok && (r.headers.get('content-type') || '').includes('json')) d = await r.json(); } catch (e) {}
   if (!d && !LIVE.bridge) return; // sin puente: modo demo
   LIVE.bridge = true;
   if (!d) LIVE.err = 'Sin conexión con el puente MT5. ¿Has cerrado iniciar.bat?';

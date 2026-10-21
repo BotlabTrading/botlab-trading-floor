@@ -12,6 +12,7 @@ import json
 import os
 import sys
 import threading
+import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 if os.environ.get("MT5_FAKE"):
@@ -26,7 +27,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 DEFAULTS = {"symbol": "XAUUSD", "magics": {"D1": 0, "H4": 0, "H4B": 0}, "history_days": 7, "port": 8765, "terminal_path": ""}
 REASONS = {0: "Manual", 1: "Móvil", 2: "Web", 3: "Experto", 4: "Stop loss", 5: "Take profit", 6: "Stop out"}
-LOCK = threading.Lock()
+# MetaTrader5 se usa siempre desde un único hilo; la web solo lee la última foto.
+CACHE = {"connected": False, "error": "Conectando con MetaTrader 5..."}
+CACHE_LOCK = threading.Lock()
 
 
 def load_config():
@@ -121,18 +124,31 @@ def state():
     }
 
 
+def worker():
+    global CACHE
+    reported = None
+    while True:
+        try:
+            snap = state()
+        except Exception as e:  # nunca tumbar el puente por un fallo de lectura
+            snap = {"connected": False, "error": f"Error leyendo MT5: {e}"}
+        with CACHE_LOCK:
+            CACHE = snap
+        msg = "Conectado a MetaTrader 5 (solo lectura)." if snap["connected"] else snap["error"]
+        if msg != reported:
+            print(msg, flush=True)
+            reported = msg
+        time.sleep(1)
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=ROOT, **kw)
 
     def do_GET(self):
         if self.path.split("?")[0] == "/api/state":
-            with LOCK:
-                try:
-                    body = state()
-                except Exception as e:  # nunca tumbar el servidor por un fallo de lectura
-                    body = {"connected": False, "error": f"Error leyendo MT5: {e}"}
-            data = json.dumps(body).encode("utf-8")
+            with CACHE_LOCK:
+                data = json.dumps(CACHE).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
@@ -151,9 +167,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(CFG["port"])
-    with LOCK:
-        err = ensure_connected()
-    print(err or "Conectado a MetaTrader 5 (solo lectura).")
+    threading.Thread(target=worker, daemon=True).start()
     if not MAGICS:
         print("Aviso: no hay magic numbers en bridge/config.json; la web mostrará los que encuentre para que los configures.")
     print(f"Abre http://localhost:{port} en el navegador. Ctrl+C para salir.")
