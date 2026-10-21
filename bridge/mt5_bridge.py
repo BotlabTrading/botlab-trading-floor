@@ -10,6 +10,7 @@ Este script nunca envía, modifica ni cierra órdenes.
 import datetime as dt
 import json
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -47,10 +48,34 @@ MAGICS = {k: int(v) for k, v in CFG["magics"].items() if int(v or 0)}
 ENGINE_BY_MAGIC = {v: k for k, v in MAGICS.items()}
 
 
+def running_terminals():
+    """Rutas de los MetaTrader 5 abiertos ahora mismo (terminal64.exe)."""
+    if os.name != "nt":
+        return []
+    try:
+        out = subprocess.run(["powershell", "-NoProfile", "-Command",
+                              "Get-Process terminal64 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path"],
+                             capture_output=True, text=True, timeout=15).stdout
+    except Exception:
+        return []
+    return [l.strip() for l in out.splitlines() if l.strip()]
+
+
+TERMINAL = None
+
+
 def ensure_connected():
-    if mt5.terminal_info() is not None:
+    global TERMINAL
+    if TERMINAL is not None and mt5.terminal_info() is not None:
         return None
-    ok = mt5.initialize(path=CFG["terminal_path"]) if CFG["terminal_path"] else mt5.initialize()
+    if TERMINAL is None:
+        found = running_terminals()
+        TERMINAL = CFG["terminal_path"] or (found[0] if found else "")
+        if len(found) > 1 and not CFG["terminal_path"]:
+            print("Hay varios MetaTrader 5 abiertos:\n  " + "\n  ".join(found) + "\nUso el primero. Para elegir otro, pon su ruta en terminal_path de bridge/config.json.", flush=True)
+        print(f"  · Terminal: {TERMINAL or 'el predeterminado de Windows (no he encontrado ninguno abierto)'}", flush=True)
+    # timeout: si el terminal no responde, devolver error en vez de quedarse colgado
+    ok = mt5.initialize(path=TERMINAL, timeout=15000) if TERMINAL else mt5.initialize(timeout=15000)
     if not ok:
         return f"No se pudo conectar con MetaTrader 5: {mt5.last_error()}. ¿Está el terminal abierto y con sesión iniciada?"
     return None
