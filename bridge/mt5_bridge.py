@@ -90,20 +90,33 @@ def closed_trades(deals):
     return out
 
 
+TRACE = True
+
+
+def step(msg):
+    if TRACE:
+        print(f"  · {msg}", flush=True)
+
+
 def state():
+    step("Conectando con el terminal")
     err = ensure_connected()
     if err:
         return {"connected": False, "error": err}
     sym = CFG["symbol"]
     if not mt5.symbol_select(sym, True):
         return {"connected": False, "error": f"El símbolo {sym} no existe en este bróker. Cámbialo en bridge/config.json."}
+    step(f"Leyendo cuenta y precio de {sym}")
     acc, tick = mt5.account_info(), mt5.symbol_info_tick(sym)
     if acc is None or tick is None:
         return {"connected": False, "error": f"MetaTrader 5 no devuelve datos: {mt5.last_error()}"}
+    step("Leyendo posiciones y órdenes")
     positions = [p for p in (mt5.positions_get(symbol=sym) or ())]
     orders = [o for o in (mt5.orders_get(symbol=sym) or ())]
+    step("Leyendo historial")
     now = dt.datetime.now()
     deals = [d for d in (mt5.history_deals_get(now - dt.timedelta(days=int(CFG["history_days"])), now + dt.timedelta(days=2)) or ()) if d.symbol == sym]
+    step("Leyendo velas")
     seen = sorted({int(x.magic) for x in positions + orders + deals if int(x.magic)})
     return {
         "connected": True,
@@ -125,7 +138,7 @@ def state():
 
 
 def worker():
-    global CACHE
+    global CACHE, TRACE
     reported = None
     while True:
         try:
@@ -135,6 +148,7 @@ def worker():
         with CACHE_LOCK:
             CACHE = snap
         msg = "Conectado a MetaTrader 5 (solo lectura)." if snap["connected"] else snap["error"]
+        TRACE = False
         if msg != reported:
             print(msg, flush=True)
             reported = msg
@@ -167,8 +181,12 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(CFG["port"])
-    threading.Thread(target=worker, daemon=True).start()
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
     if not MAGICS:
         print("Aviso: no hay magic numbers en bridge/config.json; la web mostrará los que encuentre para que los configures.")
     print(f"Abre http://localhost:{port} en el navegador. Ctrl+C para salir.")
-    ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    try:
+        worker()  # MetaTrader5 en el hilo principal: algunas versiones se bloquean en hilos secundarios
+    except KeyboardInterrupt:
+        pass
