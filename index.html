@@ -113,8 +113,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);ou
 .floorview{padding:14px;position:relative}
 .floorview-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
 .floorview-h h2{margin:0;font-size:16px;font-weight:700;text-wrap:balance}
-.canvas-wrap{position:relative;border-radius:10px;overflow:hidden;background:#cfd5d9}
-canvas{display:block;width:100%;height:auto;aspect-ratio:1000/620;max-width:100%;touch-action:manipulation}
+.canvas-wrap{position:relative;border-radius:10px;overflow:hidden;background:#12181a}
+canvas{display:block;width:100%;height:auto;aspect-ratio:1100/700;max-width:100%;touch-action:manipulation}
 .chip{position:absolute;left:12px;bottom:12px;max-width:calc(100% - 24px);background:rgba(16,19,17,.92);color:var(--fg);border:1px solid rgba(168,196,108,.5);border-radius:10px;padding:8px 10px 8px 12px;display:flex;gap:10px;align-items:flex-start;font-size:12px}
 .chip b{display:block;font-size:13px}
 .chip button{background:none;border:0;color:var(--muted);font-size:16px;line-height:1;padding:0 2px}
@@ -278,7 +278,7 @@ th.n,td.n{text-align:right}
             <span class="muted" style="font-size:12px">Toca un agente o un departamento para seguirlo</span>
           </div>
           <div class="canvas-wrap">
-            <canvas id="cv" width="1000" height="620" aria-label="Oficina isométrica con 27 agentes simulados trabajando por departamentos"></canvas>
+            <canvas id="cv" width="1100" height="700" aria-label="Oficina isométrica: despacho de dirección, sala de estrategias con los tres bots del Breakout Gold Pro, sala de reuniones y planta abierta con los departamentos"></canvas>
             <div class="chip" id="chip" hidden></div>
           </div>
           <div class="legend" id="legend"></div>
@@ -353,12 +353,14 @@ const sgn = n => (n < 0 ? '−' : '+') + Math.abs(n).toFixed(2);
 function clock(t) { const s = Math.floor(9.5 * 3600 + t); const h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60, ss = s % 60; return [h, m, ss].map(x => String(x).padStart(2, '0')).join(':'); }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-// ---------- floor layout (grid coordinates, 18 × 13)
-const GX = 18, GY = 13;
-const desks = [], chairs = [], agents = [];
+// ---------- plano de la oficina (rejilla 20 × 14)
+// Fondo: despacho de dirección, sala de estrategias del Gold Pro y sala de reuniones, con cristaleras.
+// Delante: planta abierta con las bancadas de los departamentos y una zona lounge.
+const GX = 20, GY = 14;
+const desks = [], chairs = [], agents = [], rugs = [];
 const NAMES = {
   tec: ['Lucía', 'Mateo', 'Sofía', 'Hugo', 'Valeria', 'Daniel', 'Martina', 'Pablo', 'Elena', 'Álvaro', 'Carmen', 'Diego'],
-  gld: ['Aurora', 'Álex', 'Nerea'],
+  gld: ['Bot D1', 'Bot H4', 'Bot H4-B'],
   mac: ['Inés', 'Javier', 'Noa'], rsk: ['Marta', 'Sergio', 'Clara'], qnt: ['Iván', 'Paula', 'Rubén'], com: ['Adriana', 'Tomás', 'Laura'],
 };
 const ROLES = {
@@ -367,46 +369,55 @@ const ROLES = {
   rsk: ['Límites de exposición', 'Drawdown', 'Ejecución y stops'],
   qnt: ['Calidad de datos', 'Reversión a la media', 'Backtesting'],
   com: ['Presidencia', 'Secretaría · diario', 'Ejecución'],
-  gld: ['Motor D1', 'Motor H4', 'Motor H4-B'],
+  gld: ['Motor D1 · rupturas diarias', 'Motor H4 · rupturas en H4', 'Motor H4-B · cobro rápido'],
 };
 const SKIN = ['#f1c7a3', '#d9a27a', '#b9805a', '#8d5a3b', '#f3d2b5', '#c98f68'];
 const HAIR = ['#2b2420', '#5a3b26', '#1c1c1c', '#8a5a2b', '#3b2a22', '#c79a5b'];
-const TABLE = { x: 14.5, y: 11.5, r: 1.0 };
-const seatAt = (deg, d = 1.45) => ({ x: TABLE.x + d * Math.cos(deg * Math.PI / 180), y: TABLE.y + d * Math.sin(deg * Math.PI / 180) });
-const REP_SEATS = [200, 250, 290, 340].map(a => ({ ...seatAt(a), key: 25 }));
+const ROOMS = [
+  { id: 'boss', label: 'DESPACHO DE DIRECCIÓN', x: 0, y: 0, w: 6, h: 5 },
+  { id: 'gld', label: 'SALA DE ESTRATEGIAS · BREAKOUT GOLD PRO', x: 6, y: 0, w: 8, h: 5 },
+  { id: 'meet', label: 'SALA DE REUNIONES', x: 14, y: 0, w: 6, h: 6 },
+];
+const roomAt = (x, y) => { const r = ROOMS.find(r => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h); return r ? r.id : x >= 15 && y >= 10.5 ? 'lounge' : 'open'; };
+// Mesa de reuniones y asientos. Las claves fijan el orden de dibujo alrededor de la mesa.
+const TABLE = { x: 15, y: 2.5, w: 4.4, d: 1.1, key: 20.25 };
+const SEATS_N = [15.4, 16.3, 17.2, 18.1, 19.0].map(x => ({ x, y: 1.9, key: 16, north: true, facing: 'n' }));
+const SEATS_S = [15.4, 16.3, 17.2, 18.1, 19.0].map(x => ({ x, y: 4.2, key: 20.4, facing: 's' }));
+const HEAD_L = { x: 14.5, y: 3.05, key: 17, head: true, facing: 'w' };
+const BOSS = { id: 'boss', dept: 'boss', name: 'carlus', role: 'Dirección', room: 'boss', home: { x: 3, y: 1.15 }, x: 3, y: 1.15,
+  state: 'seat', route: [], bubble: null, phase: 1.3, skin: '#e8bd98', hair: '#2b2420', task: '' };
 
-function addAgent(dept, i, home, sym) {
-  agents.push({ id: agents.length, dept, name: NAMES[dept][i], role: ROLES[dept][i % 3], sym, home: { ...home }, x: home.x, y: home.y,
-    state: 'seat', target: null, bubble: null, phase: Math.random() * 6.28, skin: pick(SKIN), hair: pick(HAIR), task: '' });
+function addAgent(dept, i, home, sym, room = 'open') {
+  agents.push({ id: agents.length, dept, room, name: NAMES[dept][i], role: ROLES[dept][i % 3], sym, home: { ...home }, x: home.x, y: home.y,
+    state: 'seat', route: [], bubble: null, phase: Math.random() * 6.28, skin: pick(SKIN), hair: pick(HAIR), task: '' });
 }
 function buildFloor() {
-  desks.length = chairs.length = agents.length = 0;
-  const rows = [3.2, 5.6, 8.0, 10.4], cols = [1, 4, 7];
-  let i = 0;
-  rows.forEach((y, r) => cols.forEach(x => {
-    const sym = INS_DEF[r].sym;
-    desks.push({ x, y, w: 2, d: 0.8, mons: 2, sym });
-    const home = { x: x + 1, y: y + 1.25 };
-    chairs.push(home); addAgent('tec', i++, home, sym);
-  }));
-  [11, 13.6, 16.2].forEach((x, k) => {
-    const sym = ['MES', 'MGC', 'MBT'][k];
-    desks.push({ x, y: 1.4, w: 1.8, d: 0.8, mons: 2, sym });
-    const home = { x: x + 0.9, y: 2.65 }; chairs.push(home); addAgent('mac', k, home, sym);
+  desks.length = chairs.length = agents.length = rugs.length = 0;
+  const bench = (dept, x0, y, w, syms, idx0 = 0) => syms.forEach((sym, k) => {
+    const x = x0 + k * w;
+    desks.push({ x, y, w, d: 0.8, mons: 2, sym, kind: 'bench' });
+    const home = { x: x + w / 2, y: y + 1.3 };
+    chairs.push({ ...home, facing: 's' }); addAgent(dept, idx0 + k, home, sym);
   });
-  [['rsk', 10.6], ['qnt', 14.6]].forEach(([dept, x0]) => {
-    [[x0, 5.5], [x0 + 1.8, 5.5], [x0 + 0.9, 7.4]].forEach(([x, y], k) => {
-      const sym = INS_DEF[(k + (dept === 'qnt' ? 1 : 0)) % 4].sym;
-      desks.push({ x, y, w: 1.5, d: 0.7, mons: 1, sym });
-      const home = { x: x + 0.75, y: y + 1.15 }; chairs.push(home); addAgent(dept, k, home, sym);
-    });
+  // Análisis técnico: dos bancadas de seis puestos (tres por instrumento)
+  [6.6, 10.0].forEach((y, r) => bench('tec', 0.8, y, 1.35, [0, 1, 2, 3, 4, 5].map(c => INS_DEF[Math.floor((r * 6 + c) / 3)].sym), r * 6));
+  rugs.push({ dept: 'tec', x: 0.45, y: 6.15, w: 8.8, h: 6.5 });
+  bench('mac', 10.1, 7.0, 1.3, ['MES', 'MGC', 'MBT']); rugs.push({ dept: 'mac', x: 9.75, y: 6.6, w: 4.6, h: 2.65 });
+  bench('rsk', 10.1, 10.4, 1.3, ['MNQ', 'MES', 'MGC']); rugs.push({ dept: 'rsk', x: 9.75, y: 10.0, w: 4.6, h: 2.65 });
+  bench('qnt', 15.2, 7.0, 1.3, ['MES', 'MGC', 'MBT']); rugs.push({ dept: 'qnt', x: 14.85, y: 6.6, w: 4.6, h: 2.65 });
+  // Comité: sentado de forma fija en la sala de reuniones
+  SEATS_N.slice(1, 4).forEach((s, k) => addAgent('com', k, s, 'MNQ', 'meet'));
+  [...SEATS_N, ...SEATS_S, HEAD_L].forEach(s => chairs.push({ ...s }));
+  // Sala de estrategias: un puesto con tres pantallas por bot
+  [6.9, 9.4, 11.9].forEach((x, k) => {
+    desks.push({ x, y: 1.9, w: 1.9, d: 0.8, mons: 3, sym: 'XAUUSD', kind: 'gold', engine: ENGINES[k].id });
+    addAgent('gld', k, { x: x + 0.95, y: 3.3 }, 'XAUUSD', 'gld');
+    Object.assign(agents[agents.length - 1], { engine: ENGINES[k].id, bot: true });
   });
-  [40, 90, 140].forEach((a, k) => { const home = seatAt(a); chairs.push(home); addAgent('com', k, home, 'MNQ'); });
-  [1, 4, 7].forEach((x, k) => {
-    desks.push({ x, y: 0.5, w: 2, d: 0.8, mons: 2, sym: 'XAUUSD' });
-    const home = { x: x + 1, y: 1.75 }; chairs.push(home); addAgent('gld', k, home, 'XAUUSD');
-    agents[agents.length - 1].engine = ENGINES[k].id;
-  });
+  // Despacho
+  desks.push({ x: 1.6, y: 1.6, w: 2.8, d: 0.85, mons: 2, sym: 'XAUUSD', kind: 'exec' });
+  chairs.push({ x: 3, y: 1.15, facing: 'n', exec: true }, { x: 2.45, y: 3.2, facing: 's' }, { x: 3.55, y: 3.2, facing: 's' });
+  Object.assign(BOSS, { x: BOSS.home.x, y: BOSS.home.y, state: 'seat', route: [], bubble: null, task: '' });
 }
 
 // ---------- simulation state
@@ -491,7 +502,7 @@ function goldOpen(e, dir, level) {
   const lots = goldLots(e), a = goldAgent(e);
   e.pos = { dir, lots, entry: level, sl: r2(level - dir * e.sl), tp: r2(level + dir * e.tp), t: S.simT, trailing: false };
   e.pend = null; e.note = '';
-  log('gld', `${a.name} · ${e.name}: ${dir > 0 ? 'compra' : 'venta'} de ${lots.toFixed(2)} lotes XAUUSD @ ${fmtG(level)} (SL ${fmtG(e.pos.sl)} · TP ${fmtG(e.pos.tp)})`);
+  log('gld', `${a.name}: ${dir > 0 ? 'compra' : 'venta'} de ${lots.toFixed(2)} lotes XAUUSD @ ${fmtG(level)} (SL ${fmtG(e.pos.sl)} · TP ${fmtG(e.pos.tp)})`);
   say(a, `${dir > 0 ? 'BUY' : 'SELL'} ${lots.toFixed(2)} @ ${fmtG(level)}`, 3.2);
 }
 function goldClose(e, price, reason) {
@@ -500,7 +511,7 @@ function goldClose(e, price, reason) {
   S.trades.unshift({ t: S.simT, sym: 'XAUUSD · ' + e.id, side: P.dir > 0 ? 'Largo' : 'Corto', qty: P.lots.toFixed(2) + ' lt', entry: P.entry, exit: price, pnl, reason: `${e.name} · ${reason}`, ins: G });
   if (S.trades.length > 200) S.trades.pop();
   e.pos = null; e.note = 'Esperando la próxima vela';
-  log('gld', `${a.name} · ${e.name}: ${reason.toLowerCase()} en XAUUSD @ ${fmtG(price)}, resultado ${usd(pnl, true)}`);
+  log('gld', `${a.name}: ${reason.toLowerCase()} en XAUUSD @ ${fmtG(price)}, resultado ${usd(pnl, true)}`);
   say(a, `${reason} ${usd(pnl, true)}`, 3.2);
 }
 function goldManage() {
@@ -547,7 +558,7 @@ function goldPlace(newDay) {
     }
     if (buy == null && sell == null) { e.note = 'Sin niveles válidos en esta vela'; continue; }
     e.pend = { buy, sell }; e.note = '';
-    log('gld', `${a.name} · ${e.name}: ${[buy != null ? `buy stop ${fmtG(buy)}` : '', sell != null ? `sell stop ${fmtG(sell)}` : ''].filter(Boolean).join(' · ')}${e.volF ? ` (volumen ${e.volRatio.toFixed(2)}×)` : ''}`);
+    log('gld', `${a.name}: ${[buy != null ? `buy stop ${fmtG(buy)}` : '', sell != null ? `sell stop ${fmtG(sell)}` : ''].filter(Boolean).join(' · ')}${e.volF ? ` (volumen ${e.volRatio.toFixed(2)}×)` : ''}`);
     say(a, buy != null ? `Buy stop ${fmtG(buy)}` : `Sell stop ${fmtG(sell)}`, 3);
   }
 }
@@ -666,39 +677,71 @@ function decide() {
   say(chair, actions.length ? actions[0] : 'Mantener', 3.5);
 }
 
-// ---------- committee meeting choreography
+// ---------- reunión: carlus, los tres bots del Gold Pro y un representante por departamento van a la sala de reuniones
+function routeTo(a, seat) {
+  const path = [];
+  if (a === BOSS) path.push({ x: 4.9, y: a.y }, { x: 4.9, y: 4.4 }, { x: 4.6, y: 5.6 });
+  else if (a.room === 'gld') path.push({ x: a.x, y: 4.4 }, { x: 10, y: 4.4 }, { x: 10, y: 5.6 });
+  else { const ax = a.x < 12 ? 9.5 : 14.6; path.push({ x: a.x, y: a.y + 0.6 }, { x: ax, y: a.y + 0.6 }, { x: ax, y: 6.4 }); }
+  path.push({ x: 16.2, y: 6.5 }, { x: 16.2, y: 5.3 });
+  if (seat.north) path.push({ x: 19.75, y: 4.85 }, { x: 19.75, y: 1.35 }, { x: seat.x, y: 1.35 });
+  else if (seat.head) path.push({ x: 14.6, y: 4.7 });
+  else path.push({ x: seat.x, y: 4.85 });
+  return path;
+}
+function sayAt(a, text, delay, dur) { if (!S.warm && a) a.bubble = { text, born: S.simT + delay, until: S.simT + delay + dur }; }
+const engPnl = e => e.pos.profit != null ? e.pos.profit : (G.p - e.pos.entry) * e.pos.dir * e.pos.lots * OZ;
 function convene(manual) {
   if (S.meeting) return;
   const reps = ['tec', 'mac', 'rsk', 'qnt'].map(d => {
     const list = agentsOf(d).filter(a => a.state === 'seat');
     return d === 'tec' ? pick(list) : list[0];
   });
-  reps.forEach((a, k) => { a.state = 'walk'; a.target = REP_SEATS[k]; a.task = 'Hacia el comité'; });
-  S.meeting = { phase: 'gather', reps, until: 0 };
-  log('com', manual ? 'Comité convocado manualmente: un representante por departamento' : 'Revisión periódica del comité: un representante por departamento');
+  const plan = [[BOSS, HEAD_L], ...agentsOf('gld').map((b, k) => [b, SEATS_S[k]]), [reps[0], SEATS_S[3]], [reps[1], SEATS_S[4]], [reps[2], SEATS_N[0]], [reps[3], SEATS_N[4]]];
+  plan.forEach(([a, seat]) => {
+    a.path = routeTo(a, seat); a.route = [...a.path, seat]; a.seat = seat; a.returning = false; a.state = 'walk';
+    a.task = a === BOSS ? 'Hacia la sala de reuniones' : 'Hacia el comité';
+  });
+  S.meeting = { phase: 'gather', members: plan.map(p => p[0]), until: 0 };
+  log('com', manual ? 'Reunión convocada manualmente: carlus, los bots del Gold Pro y un representante por departamento' : 'Revisión periódica: carlus, los bots del Gold Pro y un representante por departamento a la sala de reuniones');
 }
 function updateMeeting() {
   const M = S.meeting; if (!M) return;
-  if (M.phase === 'gather' && M.reps.every(a => a.state === 'meet')) {
-    M.phase = 'discuss'; M.until = S.simT + 4;
-    M.reps.forEach(a => {
-      const ins = pick(INS);
-      say(a, { tec: `${ins.sym} ${sgn(ins.tec)}`, mac: `Régimen ${sgn(S.riskOn)}`, rsk: `Expo ${Math.round(notional() / equity() * 100)}%`, qnt: `z ${ins.sym} ${ins.z.toFixed(1)}` }[a.dept], 3.5);
+  if (M.phase === 'gather' && M.members.every(a => a.state === 'meet')) {
+    M.phase = 'discuss';
+    sayAt(BOSS, pick(['¿Cómo vamos?', 'Resumen rápido, equipo', 'A ver esos números']), 0, 2.4);
+    let k = 1;
+    M.members.forEach(a => {
+      if (a === BOSS) return;
+      let text;
+      if (a.bot) { const e = G.eng.find(x => x.id === a.engine); text = e.pos ? `${e.pos.dir > 0 ? 'Largo' : 'Corto'} ${usd(engPnl(e), true)}` : e.pend ? 'Órdenes listas' : 'Esperando vela'; }
+      else { const ins = pick(INS); text = { tec: `${ins.sym} ${sgn(ins.tec)}`, mac: `Régimen ${sgn(S.riskOn)}`, rsk: `Expo ${Math.round(notional() / equity() * 100)}%`, qnt: `z ${ins.sym} ${ins.z.toFixed(1)}` }[a.dept]; }
+      sayAt(a, text, k++ * 0.55, 2.2);
     });
+    M.until = S.simT + k * 0.55 + 2;
   } else if (M.phase === 'discuss' && S.simT >= M.until) {
     decide();
-    M.reps.forEach(a => { a.state = 'walk'; a.target = { ...a.home, back: true }; a.task = 'Volviendo a su mesa'; });
+    sayAt(BOSS, pick(['Adelante', 'Perfecto, seguimos', 'Buen trabajo']), 0, 2.4);
+    M.members.forEach(a => {
+      a.route = [...a.path].reverse().concat([{ x: a.home.x, y: a.home.y }]); a.returning = true; a.state = 'walk';
+      a.task = a === BOSS ? 'Volviendo al despacho' : a.bot ? 'Volviendo a su puesto' : 'Volviendo a su mesa';
+    });
     M.phase = 'return';
-  } else if (M.phase === 'return' && M.reps.every(a => a.state === 'seat')) {
+  } else if (M.phase === 'return' && M.members.every(a => a.state === 'seat')) {
     S.meeting = null; S.nextMeeting = S.simT + MEET_EVERY;
   }
 }
 function moveAgents(dt) {
-  for (const a of agents) {
+  for (const a of [...agents, BOSS]) {
     if (a.state !== 'walk') continue;
-    const dx = a.target.x - a.x, dy = a.target.y - a.y, d = Math.hypot(dx, dy), step = 2.6 * dt;
-    if (d <= step) { a.x = a.target.x; a.y = a.target.y; a.state = a.target.back ? 'seat' : 'meet'; a.task = ''; }
-    else { a.x += dx / d * step; a.y += dy / d * step; }
+    let step = 3 * dt;
+    while (step > 0 && a.route.length) {
+      const tg = a.route[0], dx = tg.x - a.x, dy = tg.y - a.y, d = Math.hypot(dx, dy);
+      if (d > 0.001) a.toward = dx + dy > 0;
+      if (d <= step) { a.x = tg.x; a.y = tg.y; a.route.shift(); step -= d; }
+      else { a.x += dx / d * step; a.y += dy / d * step; step = 0; }
+    }
+    if (!a.route.length) { a.state = a.returning ? 'seat' : 'meet'; a.task = ''; }
   }
 }
 
@@ -712,175 +755,413 @@ function advance(dt) {
 
 // ---------- canvas
 const cv = $('#cv'), ctx = cv.getContext('2d');
-const W = 1000, H = 620, OX = 420, OY = 116;
+const W = 1100, H = 700, OX = 456, OY = 132, WH = 120, GH = 58;
 const iso = (x, y, z = 0) => [OX + (x - y) * 32, OY + (x + y) * 16 - z];
-let sel = null, hover = null; // sel: {type:'agent'|'dept', id}
-function poly(pts, fill, stroke) {
+let sel = null, hover = null; // sel: {type:'agent'|'dept'|'boss', id}
+function poly(pts, fill, stroke, lw = 1) {
   ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath();
   if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
 }
+function line(p, q, c, lw = 1) { ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.strokeStyle = c; ctx.lineWidth = lw; ctx.stroke(); }
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
 function box(x, y, w, d, h, top, left, right, z0 = 0) {
   const a = iso(x, y + d, z0), b = iso(x + w, y + d, z0), c = iso(x + w, y, z0);
   const a2 = iso(x, y + d, z0 + h), b2 = iso(x + w, y + d, z0 + h), c2 = iso(x + w, y, z0 + h), d2 = iso(x, y, z0 + h);
   poly([a, b, b2, a2], left); poly([b, c, c2, b2], right); poly([d2, c2, b2, a2], top);
 }
-function zoneAt(cx, cy) { if (cx < 10) return cy < 3 ? 'gld' : 'tec'; if (cy < 5) return 'mac'; if (cy < 10) return cx < 14 ? 'rsk' : 'qnt'; return 'com'; }
+const hexA = (hex, a) => `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`;
+const shade = (hex, f) => '#' + [1, 3, 5].map(i => Math.max(0, Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * f))).toString(16).padStart(2, '0')).join('');
+// planos de pared: (u, v) en píxeles, u a lo largo de la pared y v hacia abajo desde z1
+function onBack(x0, z1, fn) { const [bx, by] = iso(x0, 0, z1); ctx.save(); ctx.transform(1, 0.5, 0, 1, bx, by); fn(); ctx.restore(); }
+function onLeft(y1, z1, fn) { const [bx, by] = iso(0, y1, z1); ctx.save(); ctx.transform(1, -0.5, 0, 1, bx, by); fn(); ctx.restore(); }
+function onFloor(x, y, fn) { ctx.save(); ctx.transform(1, 0.5, -1, 0.5, ...iso(x, y)); fn(); ctx.restore(); }
 
-function drawWalls(t) {
-  const WH = 96;
-  poly([iso(0, 0), iso(GX, 0), iso(GX, 0, WH), iso(0, 0, WH)], '#3a433c');
-  poly([iso(0, 0), iso(0, GY), iso(0, GY, WH), iso(0, 0, WH)], '#2f3731');
-  poly([iso(0, 0, WH), iso(GX, 0, WH), iso(GX, 0, WH + 4), iso(0, 0, WH + 4)], '#55605a');
-  poly([iso(0, 0, WH), iso(0, GY, WH), iso(0, GY, WH + 4), iso(0, 0, WH + 4)], '#4a544e');
-  // market board on the back wall
-  const [bx, by] = iso(1, 0, 86), bw = 7.8 * 32, bh = 66, mnq = INS[0];
-  ctx.save(); ctx.transform(1, 0.5, 0, 1, bx, by);
-  ctx.fillStyle = '#121915'; ctx.fillRect(0, 0, bw, bh);
-  ctx.strokeStyle = 'rgba(168,196,108,.55)'; ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, bw - 1, bh - 1);
-  ctx.fillStyle = '#a8c46c'; ctx.font = '600 6.5px "JetBrains Mono", monospace'; ctx.fillText('EL PULSO DEL MERCADO', 9, 13);
-  ctx.fillStyle = '#eef2ea'; ctx.font = '700 14px Archivo, sans-serif'; ctx.fillText('Tu trading floor.', 9, 31);
-  ctx.fillStyle = '#93a08f'; ctx.font = '600 11px Archivo, sans-serif'; ctx.fillText('Todo conectado.', 9, 46);
-  ctx.fillStyle = '#93a08f'; ctx.font = '500 7px "JetBrains Mono", monospace'; ctx.fillText(`MNQ ${px(mnq, mnq.p)}`, 9, 59);
-  const h = mnq.hist.slice(-140), lo = Math.min(...h), hi = Math.max(...h), cx0 = 128, cw = bw - cx0 - 10;
-  ctx.beginPath();
-  h.forEach((v, i) => { const X = cx0 + i / (h.length - 1) * cw, Y = 56 - (v - lo) / ((hi - lo) || 1) * 40; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
-  ctx.strokeStyle = mnq.p >= mnq.open ? '#57d29b' : '#f1716a'; ctx.lineWidth = 1.4; ctx.stroke();
-  ctx.restore();
-  // stripes
-  ctx.save(); ctx.transform(1, 0.5, 0, 1, ...iso(9.6, 0, 86));
-  ['#6fae5a', '#e0a03f', '#de5f62', '#9480dc', '#4fb2d2', '#d3a332'].forEach((c, k) => { ctx.fillStyle = c; ctx.fillRect(k * 9, 0, 5, 66); });
-  ctx.restore();
-  // ticker on the left wall
-  const [tx, ty] = iso(0, 12.4, 64), tw = 9.6 * 32;
-  ctx.save(); ctx.transform(1, -0.5, 0, 1, tx, ty);
-  ctx.fillStyle = '#0e1210'; ctx.fillRect(0, 0, tw, 20);
-  ctx.beginPath(); ctx.rect(0, 0, tw, 20); ctx.clip();
-  ctx.font = '600 10px "JetBrains Mono", monospace';
-  const parts = INS.map(i => ({ s: `${i.sym} ${px(i, i.p)} ${pct(i.p / i.open - 1)}`, up: i.p >= i.open }));
-  const seg = parts.map(p => p.s).join('   ·   ') + '   ·   ';
-  const segW = ctx.measureText(seg).width, off = reduceMotion ? 0 : (t * 28) % segW;
-  for (let rep = 0; rep < 3; rep++) {
-    let x = 8 - off + rep * segW;
-    parts.forEach(p => { ctx.fillStyle = p.up ? '#57d29b' : '#f1716a'; ctx.fillText(p.s, x, 14); x += ctx.measureText(p.s + '   ·   ').width; });
+// skyline al atardecer para los ventanales (se genera una vez)
+let seed = 7;
+const srnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const SKY = (() => {
+  const c = document.createElement('canvas'); c.width = 900; c.height = 110;
+  const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 110);
+  gr.addColorStop(0, '#0e1f33'); gr.addColorStop(0.6, '#2b4a63'); gr.addColorStop(1, '#c98a52');
+  g.fillStyle = gr; g.fillRect(0, 0, 900, 110);
+  for (let x = 0; x < 900;) { const w = 14 + srnd() * 26, h = 30 + srnd() * 45; g.fillStyle = '#1d2c3c'; g.fillRect(x, 110 - h, w, h); x += w + 2; }
+  for (let x = 0; x < 900;) {
+    const w = 18 + srnd() * 28, h = 18 + srnd() * 46; g.fillStyle = '#111b26'; g.fillRect(x, 110 - h, w, h);
+    for (let yy = 110 - h + 4; yy < 106; yy += 6) for (let xx = x + 3; xx < x + w - 3; xx += 5) if (srnd() < 0.32) { g.fillStyle = `rgba(244,200,122,${0.45 + srnd() * 0.5})`; g.fillRect(xx, yy, 2, 2); }
+    x += w + 3;
   }
-  ctx.restore();
+  return c;
+})();
+const BOOKS = [0, 1, 2, 3].map(() => { const r = []; for (let u = 3; u < 96;) { const w = 3 + srnd() * 4; r.push({ u, w, h: 8 + srnd() * 4, c: ['#8c3b2f', '#2f4f6b', '#d3a332', '#41664a', '#d9d2c3', '#3a3f44'][Math.floor(srnd() * 6)] }); u += w + 0.6 + (srnd() < 0.12 ? 6 : 0); } return r; });
+
+function windowPane(w, h, sx) {
+  ctx.fillStyle = '#161c1e'; ctx.fillRect(-3, -3, w + 6, h + 6);
+  ctx.drawImage(SKY, sx, 110 - h, w, h, 0, 0, w, h);
+  const g = ctx.createLinearGradient(0, 0, w, h); g.addColorStop(0, 'rgba(255,255,255,.10)'); g.addColorStop(0.5, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,.05)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#161c1e';
+  for (let u = 34; u < w - 10; u += 34) ctx.fillRect(u, 0, 2, h);
+  ctx.fillRect(0, Math.round(h * 0.72), w, 2);
+  ctx.fillStyle = '#56605e'; ctx.fillRect(-4, h, w + 8, 3);
+}
+function screenBezel(w, h) { ctx.fillStyle = '#07090a'; ctx.fillRect(-3, -3, w + 6, h + 6); ctx.fillStyle = '#0e1416'; ctx.fillRect(0, 0, w, h); }
+function fitText(s, max) { if (ctx.measureText(s).width <= max) return s; while (s.length > 1 && ctx.measureText(s + '…').width > max) s = s.slice(0, -1); return s + '…'; }
+function videoWall(w, h) {
+  screenBezel(w, h);
+  ctx.fillStyle = 'rgba(255,255,255,.035)'; ctx.fillRect(Math.round(w / 3), 0, 1, h); ctx.fillRect(Math.round(w * 2 / 3), 0, 1, h); ctx.fillRect(0, Math.round(h / 2), w, 1);
+  ctx.fillStyle = '#d3a332'; ctx.font = '800 7px Archivo, sans-serif'; ctx.fillText('BREAKOUT GOLD PRO', 6, 10);
+  const live = LIVE.on;
+  ctx.font = '700 5.5px "JetBrains Mono", monospace'; ctx.fillStyle = live ? '#57d29b' : '#8b968f';
+  ctx.fillText(live ? '● MT5 EN VIVO' : '● SIMULACIÓN', 82, 10);
+  ctx.textAlign = 'right'; ctx.font = '700 9px "JetBrains Mono", monospace'; ctx.fillStyle = G.p >= G.open ? '#57d29b' : '#f1716a';
+  ctx.fillText(fmtG(G.p), w - 6, 11);
+  ctx.font = '600 5.5px "JetBrains Mono", monospace'; ctx.fillStyle = '#8b968f';
+  ctx.fillText(`${live ? LIVE.d.symbol : 'XAUUSD'} · H4`, w - 52, 10); ctx.textAlign = 'left';
+  const cs = [...G.h4.slice(-34), G.cur], top = 16, bot = h - 26, lo = Math.min(...cs.map(c => c.l)), hi = Math.max(...cs.map(c => c.h));
+  const Y = v => bot - (v - lo) / ((hi - lo) || 1) * (bot - top), step = (w - 12) / Math.max(cs.length, 35);
+  cs.forEach((c, i) => {
+    const X = 6 + i * step + step / 2, col = c.c >= c.o ? '#57d29b' : '#f1716a';
+    ctx.fillStyle = col; ctx.fillRect(X - 0.4, Y(c.h), 0.8, Math.max(0.8, Y(c.l) - Y(c.h)));
+    ctx.fillRect(X - step * 0.3, Y(Math.max(c.o, c.c)), step * 0.6, Math.max(0.8, Math.abs(Y(c.o) - Y(c.c))));
+  });
+  G.eng.forEach(e => { if (e.pend) [e.pend.buy, e.pend.sell].forEach(v => { if (v != null && v > lo && v < hi) { ctx.fillStyle = 'rgba(211,163,50,.6)'; for (let u = 6; u < w - 6; u += 4) ctx.fillRect(u, Y(v), 2, 0.6); } }); });
+  const cw = (w - 12) / 3;
+  G.eng.forEach((e, k) => {
+    const x0 = 6 + k * cw;
+    ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(x0, h - 21, cw - 3, 17);
+    ctx.fillStyle = '#d3a332'; ctx.font = '800 6.5px "JetBrains Mono", monospace'; ctx.fillText(e.id === 'H4B' ? 'H4-B' : e.id, x0 + 4, h - 13);
+    const st = e.pos ? `${e.pos.dir > 0 ? 'LARGO' : 'CORTO'} ${usd(engPnl(e), true)}` : e.pend ? 'PENDIENTES' : 'EN ESPERA';
+    ctx.fillStyle = e.pos ? (engPnl(e) >= 0 ? '#57d29b' : '#f1716a') : e.pend ? '#e9c45c' : '#8b968f';
+    ctx.font = '600 5.5px "JetBrains Mono", monospace'; ctx.fillText(fitText(st, cw - 10), x0 + 4, h - 6.5);
+  });
+}
+function meetingTV(w, h) {
+  screenBezel(w, h);
+  ctx.fillStyle = '#4fb2d2'; ctx.font = '800 7px Archivo, sans-serif'; ctx.fillText('COMITÉ', 5, 10);
+  const M = S.meeting;
+  ctx.font = '700 7px "JetBrains Mono", monospace'; ctx.fillStyle = M ? '#e9c45c' : '#cfd6cf';
+  ctx.fillText(M ? (M.phase === 'discuss' ? 'EN SESIÓN' : M.phase === 'gather' ? 'REUNIENDO…' : 'CERRADA') : `Próxima en ${Math.max(0, Math.ceil(S.nextMeeting - S.simT))} s`, 5, 22);
+  ctx.font = '500 5.5px "JetBrains Mono", monospace'; ctx.fillStyle = '#8b968f';
+  ctx.fillText('ÚLTIMA DECISIÓN', 5, 33);
+  ctx.fillStyle = '#e6eae2'; ctx.font = '600 6px "JetBrains Mono", monospace'; ctx.fillText(fitText(S.lastDecision || '—', w - 10), 5, 42);
+}
+function drawWalls(t) {
+  poly([iso(0, 0), iso(GX, 0), iso(GX, 0, WH), iso(0, 0, WH)], '#323b38');
+  poly([iso(0, 0), iso(0, GY), iso(0, GY, WH), iso(0, 0, WH)], '#2a322f');
+  for (let x = 2; x < GX; x += 2) line(iso(x, 0, 5), iso(x, 0, WH), 'rgba(0,0,0,.16)');
+  for (let y = 2; y < GY; y += 2) line(iso(0, y, 5), iso(0, y, WH), 'rgba(0,0,0,.16)');
+  poly([iso(0, 0), iso(GX, 0), iso(GX, 0, 5), iso(0, 0, 5)], '#1b211f'); poly([iso(0, 0), iso(0, GY), iso(0, GY, 5), iso(0, 0, 5)], '#171c1a');
+  poly([iso(0, 0, WH), iso(GX, 0, WH), iso(GX, 0, WH + 4), iso(0, 0, WH + 4)], '#4b5551');
+  poly([iso(0, 0, WH), iso(0, GY, WH), iso(0, GY, WH + 4), iso(0, 0, WH + 4)], '#424b48');
+  // ventanales
+  [[0.35, 2.55, 0], [3.45, 5.65, 180], [14.4, 16.4, 420]].forEach(([a, b, sx]) => onBack(a, 106, () => windowPane((b - a) * 32, 76, sx)));
+  [[11.0, 13.6, 520], [8.3, 10.6, 640], [5.6, 7.9, 760]].forEach(([a, b, sx]) => onLeft(b, 96, () => windowPane((b - a) * 32, 66, sx)));
+  // placa de Botlab en el despacho
+  onBack(2.68, 90, () => {
+    ctx.fillStyle = '#1b2120'; ctx.fillRect(0, 0, 21, 32); ctx.strokeStyle = '#d3a332'; ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, 20, 31);
+    ctx.fillStyle = '#d3a332'; ctx.font = '800 10px Archivo, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('BL', 10.5, 18);
+    ctx.font = '700 3.6px Archivo, sans-serif'; ctx.fillText('BOTLAB', 10.5, 26); ctx.textAlign = 'left';
+  });
+  onBack(6.7, 110, () => videoWall(6.6 * 32, 86));
+  onBack(16.8, 94, () => meetingTV(2.6 * 32, 50));
+  // ticker en la pared izquierda
+  const tw = 8.6 * 32;
+  onLeft(13.8, 116, () => {
+    ctx.fillStyle = '#0b0f0e'; ctx.fillRect(0, 0, tw, 14);
+    ctx.beginPath(); ctx.rect(0, 0, tw, 14); ctx.clip();
+    ctx.font = '600 9px "JetBrains Mono", monospace';
+    const parts = [...INS, G].map(i => ({ s: `${i.sym} ${px(i, i.p)} ${pct(i.p / i.open - 1)}`, up: i.p >= i.open }));
+    const seg = parts.map(p => p.s).join('   ·   ') + '   ·   ';
+    const segW = ctx.measureText(seg).width, off = reduceMotion ? 0 : (t * 26) % segW;
+    for (let rep = 0; rep < 3; rep++) {
+      let x = 8 - off + rep * segW;
+      parts.forEach(p => { ctx.fillStyle = p.up ? '#57d29b' : '#f1716a'; ctx.fillText(p.s, x, 10.5); x += ctx.measureText(p.s + '   ·   ').width; });
+    }
+  });
 }
 function drawFloor() {
+  // canto del forjado
+  poly([iso(0, GY), iso(GX, GY), [iso(GX, GY)[0], iso(GX, GY)[1] + 10], [iso(0, GY)[0], iso(0, GY)[1] + 10]], '#0b0f10');
+  poly([iso(GX, 0), iso(GX, GY), [iso(GX, GY)[0], iso(GX, GY)[1] + 10], [iso(GX, 0)[0], iso(GX, 0)[1] + 10]], '#080b0c');
   for (let y = 0; y < GY; y++) for (let x = 0; x < GX; x++) {
-    const z = DEPTS[zoneAt(x, y)].floor;
-    poly([iso(x, y), iso(x + 1, y), iso(x + 1, y + 1), iso(x, y + 1)], z[(x + y) & 1]);
+    const r = roomAt(x + 0.5, y + 0.5), odd = (x + y) & 1;
+    const c = r === 'boss' ? (odd ? '#b48a5f' : '#b98f64') : r === 'gld' ? (odd ? '#262e2d' : '#2a3231') : r === 'meet' ? (odd ? '#d8d6ce' : '#dedcd5') : (((x >> 1) + (y >> 1)) & 1 ? '#cdd0ca' : '#c9ccc6');
+    poly([iso(x, y), iso(x + 1, y), iso(x + 1, y + 1), iso(x, y + 1)], c);
   }
-  const labels = [['gld', 0.35, 2.25, 'BREAKOUT GOLD PRO'], ['tec', 0.35, 12.3, 'ANÁLISIS TÉCNICO'], ['mac', 10.4, 0.25, 'MACROECONOMÍA'], ['rsk', 10.3, 5.05, 'RIESGO'], ['qnt', 14.3, 5.05, 'QUANT'], ['com', 10.4, 10.2, 'COMITÉ']];
-  labels.forEach(([d, x, y, txt]) => {
-    ctx.save(); ctx.transform(1, 0.5, -1, 0.5, ...iso(x, y));
-    const on = sel && sel.type === 'dept' && sel.id === d;
-    ctx.fillStyle = on ? DEPTS[d].color : 'rgba(40,50,44,.32)'; ctx.font = '800 15px Archivo, sans-serif';
-    ctx.fillText(txt, 0, 18); ctx.restore();
+  // tarima del despacho
+  for (let k = 1; k < 15; k++) {
+    const yy = k / 3; line(iso(0, yy), iso(6, yy), 'rgba(70,40,18,.22)');
+    for (let x = (k % 3) * 0.7 + 0.4; x < 6; x += 2.1) line(iso(x, yy - 1 / 3), iso(x, yy), 'rgba(70,40,18,.22)');
+  }
+  // sala de estrategias: cenefa dorada
+  poly([iso(6.35, 0.35), iso(13.65, 0.35), iso(13.65, 4.65), iso(6.35, 4.65)], null, 'rgba(211,163,50,.5)', 1.2);
+  // sala de reuniones: juntas de las losas
+  for (let x = 15; x < 20; x++) line(iso(x, 0), iso(x, 6), 'rgba(0,0,0,.05)');
+  for (let y = 1; y < 6; y++) line(iso(14, y), iso(20, y), 'rgba(0,0,0,.05)');
+  // alfombras de los departamentos
+  rugs.forEach(r => {
+    const on = sel && sel.type === 'dept' && sel.id === r.dept, c = DEPTS[r.dept].color;
+    poly([iso(r.x, r.y), iso(r.x + r.w, r.y), iso(r.x + r.w, r.y + r.h), iso(r.x, r.y + r.h)], hexA(c, on ? 0.22 : 0.12), hexA(c, on ? 0.9 : 0.35), on ? 2 : 1);
+    onFloor(r.x + 0.2, r.y + r.h - 0.12, () => { ctx.fillStyle = hexA(c, on ? 1 : 0.75); ctx.font = '800 10px Archivo, sans-serif'; ctx.fillText(DEPTS[r.dept].short.toUpperCase(), 0, 0); });
   });
-  const part = (pts) => { poly(pts, 'rgba(255,255,255,.28)'); ctx.beginPath(); ctx.moveTo(...pts[3]); ctx.lineTo(...pts[2]); ctx.strokeStyle = 'rgba(80,95,90,.55)'; ctx.lineWidth = 1.5; ctx.stroke(); };
-  const PH = 16;
-  part([iso(10, 0), iso(10, GY), iso(10, GY, PH), iso(10, 0, PH)]);
-  part([iso(0, 3), iso(10, 3), iso(10, 3, PH), iso(0, 3, PH)]);
-  part([iso(10, 5), iso(GX, 5), iso(GX, 5, PH), iso(10, 5, PH)]);
-  part([iso(10, 10), iso(GX, 10), iso(GX, 10, PH), iso(10, 10, PH)]);
-  part([iso(14, 5), iso(14, 10), iso(14, 10, PH), iso(14, 5, PH)]);
+  poly([iso(15.2, 10.9), iso(19.85, 10.9), iso(19.85, 13.8), iso(15.2, 13.8)], 'rgba(59,74,82,.28)', 'rgba(59,74,82,.5)');
+  onFloor(15.4, 13.65, () => { ctx.fillStyle = 'rgba(40,52,58,.7)'; ctx.font = '800 10px Archivo, sans-serif'; ctx.fillText('LOUNGE', 0, 0); });
+  const lab = (x, y, txt, c, d) => onFloor(x, y, () => { const on = d && sel && sel.type === 'dept' && sel.id === d; ctx.fillStyle = on ? DEPTS[d].color : c; ctx.font = '800 11px Archivo, sans-serif'; ctx.fillText(txt, 0, 0); });
+  lab(0.3, 4.8, 'DESPACHO DE DIRECCIÓN', 'rgba(255,240,220,.42)');
+  lab(6.4, 4.4, 'SALA DE ESTRATEGIAS', 'rgba(211,163,50,.75)', 'gld');
+  lab(14.3, 5.8, 'SALA DE REUNIONES', 'rgba(40,50,48,.42)', 'com');
+}
+function drawLights() {
+  const pool = (x, y, r, c) => {
+    const [sx, sy] = iso(x, y); ctx.save(); ctx.translate(sx, sy); ctx.scale(1, 0.5);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r); g.addColorStop(0, c); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  };
+  pool(1.5, 1.2, 80, 'rgba(255,205,140,.18)'); pool(4.5, 1.2, 80, 'rgba(255,205,140,.18)');
+  pool(10, 1.4, 150, 'rgba(211,163,50,.20)'); pool(17.2, 3, 110, 'rgba(255,245,225,.18)');
+  pool(4.8, 9.2, 210, 'rgba(255,255,255,.10)'); pool(13.5, 9.2, 190, 'rgba(255,255,255,.10)');
+}
+const GLASS = [];
+[['x', 5, 0, 6, [4.1, 5.1]], ['y', 6, 0, 5, null], ['x', 5, 6, 14, [9.5, 10.5]], ['y', 14, 0, 6, null], ['x', 6, 14, 20, [15.7, 16.7]]].forEach(([ax, c, a, b, gap]) => {
+  const cuts = [a, b]; for (let v = Math.ceil(a); v < b; v++) cuts.push(v); if (gap) cuts.push(...gap);
+  const s = [...new Set(cuts)].sort((p, q) => p - q);
+  for (let i = 0; i < s.length - 1; i++) GLASS.push({ ax, c, a0: s[i], a1: s[i + 1], door: !!gap && s[i] >= gap[0] && s[i + 1] <= gap[1], k: c + (s[i] + s[i + 1]) / 2 });
+});
+function drawGlass(g) {
+  const P = (u, z) => g.ax === 'x' ? iso(u, g.c, z) : iso(g.c, u, z);
+  if (g.door) { poly([P(g.a0, GH - 5), P(g.a1, GH - 5), P(g.a1, GH), P(g.a0, GH)], '#8f9a9c'); return; }
+  poly([P(g.a0, 0), P(g.a1, 0), P(g.a1, GH), P(g.a0, GH)], 'rgba(200,226,236,.17)');
+  poly([P(g.a0, 24), P(g.a1, 24), P(g.a1, 31), P(g.a0, 31)], 'rgba(255,255,255,.13)');
+  poly([P(g.a0, 0), P(g.a1, 0), P(g.a1, 3), P(g.a0, 3)], '#59615f');
+  line(P(g.a0, GH), P(g.a1, GH), '#a3aeb0', 2);
+  line(P(g.a0, 0), P(g.a0, GH), 'rgba(150,165,168,.9)', 1.2); line(P(g.a1, 0), P(g.a1, GH), 'rgba(150,165,168,.9)', 1.2);
+  const L = g.a1 - g.a0; line(P(g.a0 + L * 0.25, 8), P(g.a0 + L * 0.6, GH - 6), 'rgba(255,255,255,.14)', 1.5);
+}
+function monitor(cx, my, mw, z, kind, ins, t) {
+  const MH = 19, A = iso(cx - mw / 2, my, z + 3), B = iso(cx + mw / 2, my, z + 3);
+  const st = iso(cx, my, z); ctx.fillStyle = '#2a2f33'; ctx.fillRect(st[0] - 1.5, st[1] - 4, 3, 4);
+  poly([A, B, [B[0], B[1] - MH], [A[0], A[1] - MH]], '#0a0d0e');
+  const P = (u, v) => [A[0] + (B[0] - A[0]) * u, A[1] + (B[1] - A[1]) * u - v];
+  poly([P(0.05, 1.5), P(0.95, 1.5), P(0.95, MH - 1.5), P(0.05, MH - 1.5)], '#122026');
+  if (kind === 'candles') {
+    const cs = [...G.h4.slice(-13), G.cur], lo = Math.min(...cs.map(c => c.l)), hi = Math.max(...cs.map(c => c.h)), V = v => 3 + (v - lo) / ((hi - lo) || 1) * (MH - 7);
+    cs.forEach((c, i) => { const u = 0.12 + 0.76 * i / (cs.length - 1), q1 = P(u, V(c.l)), q2 = P(u, V(c.h)), b1 = P(u, V(Math.min(c.o, c.c))), b2 = P(u, V(Math.max(c.o, c.c)));
+      ctx.fillStyle = c.c >= c.o ? '#6fe0a9' : '#ff8a80'; ctx.fillRect(q2[0] - 0.4, q2[1], 0.8, Math.max(0.6, q1[1] - q2[1])); ctx.fillRect(b2[0] - 1, b2[1], 2, Math.max(0.8, b1[1] - b2[1])); });
+  } else if (kind === 'bars') {
+    for (let i = 0; i < 9; i++) { const u = 0.12 + 0.76 * i / 8, hgt = 2 + (0.5 + 0.5 * Math.sin(t * 1.3 + i * 1.7 + cx)) * (MH - 8), q = P(u, 3), q2 = P(u, 3 + hgt);
+      ctx.fillStyle = i % 3 ? 'rgba(111,224,169,.7)' : 'rgba(233,196,92,.8)'; ctx.fillRect(q[0] - 1, q2[1], 2, q[1] - q2[1]); }
+  } else {
+    const h = ins.hist.slice(-28), lo = Math.min(...h), hi = Math.max(...h);
+    ctx.beginPath();
+    h.forEach((v, i) => { const q = P(0.1 + 0.8 * i / (h.length - 1), 4 + (v - lo) / ((hi - lo) || 1) * (MH - 8)); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
+    ctx.strokeStyle = h[h.length - 1] >= h[0] ? '#6fe0a9' : '#ff8a80'; ctx.lineWidth = 1.2; ctx.stroke();
+  }
 }
 function drawDesk(dk, t) {
   const H0 = 15;
-  box(dk.x, dk.y, dk.w, dk.d, 3, '#f6f7f3', '#d3d7d0', '#c2c7bf', H0 - 3);
-  // legs
-  [[dk.x + 0.06, dk.y + dk.d - 0.06], [dk.x + dk.w - 0.06, dk.y + dk.d - 0.06]].forEach(([x, y]) => { const [a, b] = iso(x, y); ctx.fillStyle = '#9aa29a'; ctx.fillRect(a - 1, b - H0 + 3, 2, H0 - 3); });
-  const ins = getIns(dk.sym), h = ins.hist.slice(-28), lo = Math.min(...h), hi = Math.max(...h);
-  const up = h[h.length - 1] >= h[0];
-  for (let m = 0; m < dk.mons; m++) {
-    const mw = dk.mons === 2 ? 0.72 : 0.8, cx = dk.x + (dk.mons === 2 ? (m ? 0.73 : 0.27) * dk.w : dk.w / 2), my = dk.y + 0.18;
-    const A = iso(cx - mw / 2, my, H0 + 3), B = iso(cx + mw / 2, my, H0 + 3), MH = 19;
-    const st = iso(cx, my, H0); ctx.fillStyle = '#3a403c'; ctx.fillRect(st[0] - 1.5, st[1] - 4, 3, 4);
-    poly([A, B, [B[0], B[1] - MH], [A[0], A[1] - MH]], '#1d2621', '#11161300');
-    ctx.beginPath();
-    h.forEach((v, i) => {
-      const u = 0.1 + 0.8 * i / (h.length - 1), X = A[0] + (B[0] - A[0]) * u, Yb = A[1] + (B[1] - A[1]) * u;
-      const Y = Yb - 4 - (v - lo) / ((hi - lo) || 1) * (MH - 8);
-      i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+  if (dk.kind === 'exec') {
+    box(dk.x, dk.y, dk.w, dk.d, H0, '#7a5539', '#5e4029', '#4e3522');
+    poly([iso(dk.x, dk.y + dk.d, H0), iso(dk.x + dk.w, dk.y + dk.d, H0)].concat([iso(dk.x + dk.w, dk.y + dk.d, H0 - 1.5), iso(dk.x, dk.y + dk.d, H0 - 1.5)]), '#d3a332');
+    const [nx, ny] = iso(dk.x + dk.w / 2 - 0.5, dk.y + dk.d, 10);
+    ctx.save(); ctx.transform(1, 0.5, 0, 1, nx, ny); ctx.fillStyle = '#1b2120'; ctx.fillRect(0, 0, 32, 7);
+    ctx.fillStyle = '#e9c45c'; ctx.font = '700 5.5px Archivo, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('carlus', 16, 5.3); ctx.textAlign = 'left'; ctx.restore();
+    // dos pantallas orientadas hacia carlus (las vemos por detrás) y una lámpara
+    [2.05, 2.82].forEach(cx => {
+      const my = dk.y + 0.2, A = iso(cx - 0.36, my, H0 + 3), B = iso(cx + 0.36, my, H0 + 3), st = iso(cx, my, H0);
+      ctx.fillStyle = '#2a2f33'; ctx.fillRect(st[0] - 1.5, st[1] - 4, 3, 4);
+      poly([A, B, [B[0], B[1] - 19], [A[0], A[1] - 19]], '#262b2f'); line([A[0], A[1] - 19], [B[0], B[1] - 19], 'rgba(120,200,255,.35)');
     });
-    ctx.strokeStyle = up ? '#6fe0a9' : '#ff8a80'; ctx.lineWidth = 1.2; ctx.stroke();
+    const [lx, ly] = iso(dk.x + dk.w - 0.35, dk.y + 0.3, H0);
+    ctx.fillStyle = '#3a3f44'; ctx.fillRect(lx - 0.8, ly - 16, 1.6, 16);
+    ctx.fillStyle = '#d3a332'; ctx.beginPath(); ctx.moveTo(lx - 6, ly - 15); ctx.lineTo(lx + 6, ly - 15); ctx.lineTo(lx + 3, ly - 21); ctx.lineTo(lx - 3, ly - 21); ctx.closePath(); ctx.fill();
+    box(dk.x + 1.05, dk.y + 0.5, 0.6, 0.2, 1, '#2c3135', '#22262a', '#1b1f22', H0);
+    return;
   }
-  box(dk.x + dk.w / 2 - 0.25, dk.y + 0.48, 0.5, 0.14, 1, '#4a514c', '#3a403c', '#323833', H0);
+  const gold = dk.kind === 'gold';
+  [[dk.x + 0.05, dk.y + 0.05], [dk.x + dk.w - 0.05, dk.y + 0.05], [dk.x + 0.05, dk.y + dk.d - 0.05], [dk.x + dk.w - 0.05, dk.y + dk.d - 0.05]].forEach(([x, y]) => {
+    const [a, b] = iso(x, y); ctx.fillStyle = gold ? '#15191b' : '#7d857f'; ctx.fillRect(a - 1, b - H0 + 2, 2, H0 - 2);
+  });
+  if (gold) {
+    box(dk.x, dk.y, dk.w, dk.d, 2, '#20262a', '#171b1e', '#121518', H0 - 2);
+    line(iso(dk.x, dk.y + dk.d, H0), iso(dk.x + dk.w, dk.y + dk.d, H0), '#d3a332', 1.2);
+    [0, 1, 2].forEach(m => monitor(dk.x + (m + 0.5) * dk.w / 3, dk.y + 0.18, dk.w / 3 - 0.06, H0, ['candles', 'line', 'bars'][m], G, t));
+  } else {
+    box(dk.x, dk.y - 0.04, dk.w, 0.06, 9, '#5d6762', '#4e5853', '#434c48', H0);
+    box(dk.x, dk.y, dk.w, dk.d, 2, '#eceee9', '#c9cdc6', '#b9beb6', H0 - 2);
+    const ins = getIns(dk.sym);
+    [0.27, 0.73].forEach((f, m) => monitor(dk.x + f * dk.w, dk.y + 0.18, 0.56, H0, m ? 'bars' : 'line', ins, t));
+  }
+  box(dk.x + dk.w / 2 - 0.25, dk.y + 0.5, 0.5, 0.14, 1, '#4a514c', '#3a403c', '#323833', H0);
 }
-function drawChair(c) { box(c.x - 0.22, c.y - 0.05, 0.44, 0.44, 8, '#2f6f6a', '#285e5a', '#214f4b'); box(c.x - 0.22, c.y + 0.3, 0.44, 0.1, 12, '#2a6560', '#245752', '#1d4744', 8); }
-function drawTable() {
-  const [cx, cy] = iso(TABLE.x, TABLE.y), rx = TABLE.r * 45.25, ry = TABLE.r * 22.6, h = 15;
-  ctx.fillStyle = '#6f5843';
-  ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI); ctx.lineTo(cx - rx, cy - h); ctx.ellipse(cx, cy - h, rx, ry, 0, Math.PI, 0, true); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#a7876a'; ctx.beginPath(); ctx.ellipse(cx, cy - h, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.ellipse(cx, cy - h, rx * 0.6, ry * 0.6, 0, 0, Math.PI * 2); ctx.fill();
-  if (S.meeting && S.meeting.phase === 'discuss') {
-    ctx.fillStyle = '#4fb2d2'; ctx.globalAlpha = 0.5 + 0.3 * Math.sin(performance.now() / 200);
-    ctx.beginPath(); ctx.ellipse(cx, cy - h, rx * 0.35, ry * 0.35, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+function drawChair(c, part) {
+  const k = c.exec ? 1.15 : 1, col = c.exec ? ['#24272a', '#1b1d20', '#141618'] : c.key != null ? ['#4a5056', '#3d4247', '#33373b'] : ['#30363a', '#272c30', '#202427'];
+  const s = 0.22 * k;
+  if (part === 'seat') {
+    const [x, y] = iso(c.x, c.y);
+    ctx.fillStyle = 'rgba(0,0,0,.16)'; ctx.beginPath(); ctx.ellipse(x, y, 10, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1a1d1f'; ctx.fillRect(x - 1, y - 7, 2, 7);
+    box(c.x - s, c.y - s, 2 * s, 2 * s, 3, ...col, 7);
+    return;
   }
+  const f = c.facing || 's', t = 0.09, H = c.exec ? 24 : 15;
+  if (f === 's') box(c.x - s, c.y + s - t, 2 * s, t, H, ...col, 9);
+  else if (f === 'n') box(c.x - s, c.y - s, 2 * s, t, H, ...col, 9);
+  else if (f === 'w') box(c.x - s, c.y - s, t, 2 * s, H, ...col, 9);
+  else box(c.x + s - t, c.y - s, t, 2 * s, H, ...col, 9);
+}
+function drawTable() {
+  const T = TABLE, z = 14, P = (x, y) => iso(x, y, z);
+  box(T.x + 0.8, T.y + 0.35, T.w - 1.6, T.d - 0.7, z - 2.5, '#2a2f33', '#222629', '#1b1f22');
+  box(T.x, T.y, T.w, T.d, 2.5, '#6b4a33', '#55392a', '#472f22', z - 2.5);
+  const inlay = [P(T.x + 0.3, T.y + 0.42), P(T.x + T.w - 0.3, T.y + 0.42), P(T.x + T.w - 0.3, T.y + T.d - 0.42), P(T.x + 0.3, T.y + T.d - 0.42)];
+  poly(inlay, 'rgba(211,163,50,.4)');
+  if (S.meeting && S.meeting.phase === 'discuss') { ctx.globalAlpha = 0.45 + 0.35 * Math.sin(performance.now() / 220); poly(inlay, '#f2cf6b'); ctx.globalAlpha = 1; }
+  [...SEATS_N, ...SEATS_S].forEach(s => { const yy = s.north ? T.y + 0.08 : T.y + T.d - 0.3; poly([P(s.x - 0.15, yy), P(s.x + 0.15, yy), P(s.x + 0.15, yy + 0.22), P(s.x - 0.15, yy + 0.22)], '#e9ece6'); });
 }
 function drawPlant(p) {
-  box(p.x - 0.2, p.y - 0.2, 0.4, 0.4, 12, '#8a6a52', '#6e5442', '#5d4637');
-  const [x, y] = iso(p.x, p.y, 12);
-  [['#3f8f4f', 0, -12, 13], ['#4fa860', -7, -6, 9], ['#4fa860', 7, -7, 9], ['#62bb72', 0, -20, 8]].forEach(([c, dx, dy, r]) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x + dx, y + dy, r, 0, Math.PI * 2); ctx.fill(); });
+  box(p.x - 0.18, p.y - 0.18, 0.36, 0.36, 14, '#3a4044', '#2c3134', '#24282b');
+  const [x, y] = iso(p.x, p.y, 14);
+  [['#2f6b45', 0, -12, 11, 0], ['#3d8456', -7, -8, 8, -0.5], ['#3d8456', 7, -9, 8, 0.5], ['#4f9a66', -3, -19, 7, -0.3], ['#58a870', 4, -22, 6, 0.4]].forEach(([c, dx, dy, r, a]) => {
+    ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(x + dx, y + dy, r * 0.65, r, a, 0, Math.PI * 2); ctx.fill();
+  });
 }
+const PLANTS = [{ x: 5.45, y: 0.5 }, { x: 13.55, y: 0.5 }, { x: 19.55, y: 0.45 }, { x: 9.5, y: 13.4 }, { x: 14.6, y: 13.4 }, { x: 19.55, y: 10.7 }, { x: 19.55, y: 13.55 }];
+const FURN = [
+  { k: 2.45, f: () => {
+    box(0.06, 0.6, 0.38, 3.2, 74, '#4a3527', '#3d2b20', '#5a4130');
+    ctx.save(); ctx.transform(1, -0.5, 0, 1, ...iso(0.44, 3.8, 74));
+    BOOKS.forEach((row, i) => { const v = 6 + i * 17; row.forEach(b => { ctx.fillStyle = b.c; ctx.fillRect(b.u, v + 13 - b.h, b.w, b.h); }); ctx.fillStyle = '#2f2118'; ctx.fillRect(0, v + 13, 102, 2); });
+    ctx.restore();
+  } },
+  { k: 27, f: () => { box(15.4, 11.3, 0.7, 0.7, 7, '#56656c', '#46545a', '#3b474c'); box(15.4, 11.3, 0.16, 0.7, 17, '#4c5a60', '#3f4b50', '#354045'); } },
+  { k: 29, f: () => { box(16.6, 11.75, 1.4, 0.8, 7, '#7a5539', '#5e4029', '#4e3522'); box(16.9, 11.95, 0.4, 0.3, 1, '#d9d2c3', '#bdb6a8', '#a9a295', 7); } },
+  { k: 31.6, f: () => {
+    box(19.0, 11.35, 0.75, 1.7, 7, '#56656c', '#46545a', '#3b474c');
+    box(19.5, 11.35, 0.25, 1.7, 18, '#4c5a60', '#3f4b50', '#354045');
+    box(19.0, 11.2, 0.75, 0.15, 12, '#4c5a60', '#3f4b50', '#354045'); box(19.0, 13.05, 0.75, 0.15, 12, '#4c5a60', '#3f4b50', '#354045');
+  } },
+];
 function agentScreen(a) { return iso(a.x, a.y); }
-function drawAgent(a, t) {
-  const [x, y] = agentScreen(a), walking = a.state === 'walk', seated = !walking;
-  const bob = reduceMotion ? 0 : walking ? Math.abs(Math.sin(t * 9 + a.phase)) * 2 : Math.sin(t * 1.6 + a.phase) * 0.7;
-  const base = seated ? y - 9 : y;
-  const isSel = sel && sel.type === 'agent' && sel.id === a.id, inDept = sel && sel.type === 'dept' && sel.id === a.dept;
-  if (isSel || inDept || hover === a) {
-    ctx.save(); ctx.strokeStyle = isSel ? '#a8c46c' : inDept ? DEPTS[a.dept].color : 'rgba(30,40,35,.5)'; ctx.lineWidth = isSel ? 2.5 : 2;
-    if (inDept && !isSel) ctx.setLineDash([4, 3]);
-    ctx.beginPath(); ctx.ellipse(x, y, 15, 7.5, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
-  }
+const keyOf = a => a.state === 'meet' ? a.seat.key : a.state === 'seat' && a.home.key != null ? a.home.key : a.x + a.y;
+function faceVisible(a) {
+  if (a.state === 'walk') return !!a.toward;
+  const f = a.state === 'meet' ? a.seat.facing : a === BOSS ? 'n' : a.home.facing || 's';
+  return f === 'n' || f === 'w';
+}
+function ring(a, x, y) {
+  const isSel = sel && ((sel.type === 'agent' && sel.id === a.id && a !== BOSS) || (sel.type === 'boss' && a === BOSS)), inDept = sel && sel.type === 'dept' && sel.id === a.dept;
+  if (!(isSel || inDept || hover === a)) return;
+  ctx.save(); ctx.strokeStyle = isSel ? '#a8c46c' : inDept ? DEPTS[a.dept].color : 'rgba(200,210,205,.7)'; ctx.lineWidth = isSel ? 2.5 : 2;
+  if (inDept && !isSel) ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.ellipse(x, y, 15, 7.5, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+}
+function drawPerson(a, t) {
+  const [x, y] = iso(a.x, a.y), walking = a.state === 'walk', boss = a === BOSS, face = faceVisible(a);
+  const bob = reduceMotion ? 0 : walking ? Math.abs(Math.sin(t * 9 + a.phase)) * 1.6 : Math.sin(t * 1.6 + a.phase) * 0.6;
+  ring(a, x, y);
   if (walking) {
-    ctx.fillStyle = 'rgba(0,0,0,.15)'; ctx.beginPath(); ctx.ellipse(x, y, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(x, y, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
     const sw = reduceMotion ? 0 : Math.sin(t * 9 + a.phase) * 3;
-    ctx.fillStyle = '#2d3640'; ctx.fillRect(x - 4 + sw * 0.4, y - 10, 3, 10); ctx.fillRect(x + 1 - sw * 0.4, y - 10, 3, 10);
+    ctx.fillStyle = boss ? '#18213a' : '#2a3038'; ctx.fillRect(x - 4 + sw * 0.4, y - 11, 3, 11); ctx.fillRect(x + 1 - sw * 0.4, y - 11, 3, 11);
+    ctx.fillStyle = '#111'; ctx.fillRect(x - 4.5 + sw * 0.4, y - 1.5, 4, 2); ctx.fillRect(x + 0.5 - sw * 0.4, y - 1.5, 4, 2);
   }
-  const top = base - 17 - (walking ? 10 : 0) - bob;
-  ctx.fillStyle = DEPTS[a.dept].color;
-  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 6.5, top, 13, 17, 4) : ctx.rect(x - 6.5, top, 13, 17); ctx.fill();
+  const base = walking ? y - 10 : y - 9, top = base - 17 - bob, body = boss ? '#1f2b45' : DEPTS[a.dept].color;
+  const g = ctx.createLinearGradient(x - 7, 0, x + 7, 0); g.addColorStop(0, shade(body, 1.15)); g.addColorStop(1, shade(body, 0.75));
+  ctx.fillStyle = g; rr(x - 6.5, top, 13, 17, 4); ctx.fill();
+  ctx.fillStyle = shade(body, 0.65); rr(x - 8.5, top + 2, 2.5, 11, 1.2); ctx.fill(); rr(x + 6, top + 2, 2.5, 11, 1.2); ctx.fill();
+  if (face) {
+    if (boss) { poly([[x - 3.5, top], [x + 3.5, top], [x, top + 5]], '#f2f2ee'); ctx.fillStyle = '#d3a332'; ctx.fillRect(x - 0.9, top + 2.5, 1.8, 8); }
+    else poly([[x - 2.5, top], [x + 2.5, top], [x, top + 3.5]], a.skin);
+  }
   ctx.fillStyle = a.skin; ctx.beginPath(); ctx.arc(x, top - 5, 5.6, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = a.hair; ctx.beginPath(); ctx.arc(x, top - 6.2, 5.8, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
+  ctx.fillStyle = a.hair; ctx.beginPath();
+  if (face) ctx.arc(x, top - 6.2, 5.8, Math.PI * 1.05, Math.PI * 1.95); else ctx.arc(x, top - 5.4, 5.7, 0, Math.PI * 2);
+  ctx.fill();
   a._hit = [x - 9, top - 12, 18, y - top + 14];
 }
+function botColor(a) {
+  const e = G.eng.find(x => x.id === a.engine);
+  return e.pos ? (engPnl(e) >= 0 ? '#57d29b' : '#f1716a') : e.pend ? '#f2c94c' : '#8b968f';
+}
+function drawBot(a, t) {
+  const [x, y] = iso(a.x, a.y), hov = reduceMotion ? 0 : Math.sin(t * 2.2 + a.phase) * 2, st = botColor(a);
+  ring(a, x, y);
+  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x, y, 9 - hov * 0.6, 4.5 - hov * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+  const by = y - 14 - hov, metal = ctx.createLinearGradient(x - 9, 0, x + 9, 0);
+  metal.addColorStop(0, '#f1f4f6'); metal.addColorStop(0.55, '#c3cbd1'); metal.addColorStop(1, '#8c969d');
+  // propulsor
+  ctx.fillStyle = hexA(st, 0.35); ctx.beginPath(); ctx.ellipse(x, by + 2, 5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#9aa4ab'; rr(x - 10.5, by - 15, 3, 9, 1.5); ctx.fill(); rr(x + 7.5, by - 15, 3, 9, 1.5); ctx.fill();
+  ctx.fillStyle = metal; rr(x - 8, by - 18, 16, 18, 6); ctx.fill();
+  ctx.fillStyle = '#d3a332'; ctx.fillRect(x - 8, by - 9, 16, 2.5);
+  ctx.fillStyle = st; ctx.beginPath(); ctx.arc(x, by - 13, 1.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = metal; rr(x - 9, by - 32, 18, 13, 5); ctx.fill();
+  ctx.fillStyle = '#0d1416'; rr(x - 7, by - 29, 14, 7, 3); ctx.fill();
+  const blink = !reduceMotion && Math.sin(t * 0.9 + a.phase * 3) > 0.985;
+  ctx.fillStyle = '#7fe3ff'; ctx.shadowColor = '#7fe3ff'; ctx.shadowBlur = 4;
+  if (!blink) { ctx.fillRect(x - 4.5, by - 27, 3, 2.6); ctx.fillRect(x + 1.5, by - 27, 3, 2.6); }
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#8c969d'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x, by - 32); ctx.lineTo(x, by - 38); ctx.stroke();
+  ctx.fillStyle = st; ctx.shadowColor = st; ctx.shadowBlur = 6; ctx.beginPath(); ctx.arc(x, by - 39.5, 2.3, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  a._hov = hov;
+  a._hit = [x - 11, by - 44, 22, y - by + 46];
+}
+function drawTag(a) {
+  if (a !== BOSS && !a.bot) return;
+  if (a.bubble && a.bubble.until >= S.simT && a.bubble.born <= S.simT) return;
+  const [x, y] = agentScreen(a), text = a === BOSS ? 'carlus' : a.engine === 'H4B' ? 'H4-B' : a.engine;
+  const ty = a === BOSS ? y - (a.state === 'walk' ? 53 : 51) : y - 68 - (a._hov || 0);
+  ctx.save(); ctx.font = '700 8px "JetBrains Mono", monospace';
+  const w = ctx.measureText(text).width + 10;
+  ctx.fillStyle = 'rgba(14,18,19,.88)'; rr(x - w / 2, ty, w, 12, 6); ctx.fill();
+  ctx.strokeStyle = '#d3a332'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#e9c45c'; ctx.fillText(text, x - w / 2 + 5, ty + 8.6); ctx.restore();
+}
 function drawBubble(a) {
-  if (!a.bubble || a.bubble.until < S.simT) return;
+  if (!a.bubble || a.bubble.until < S.simT || a.bubble.born > S.simT) return;
   const [x, y] = agentScreen(a), age = S.simT - a.bubble.born, left = a.bubble.until - S.simT;
   const alpha = Math.min(1, age * 4, left * 2);
   ctx.save(); ctx.globalAlpha = alpha; ctx.font = '600 10px "JetBrains Mono", monospace';
-  const tw = ctx.measureText(a.bubble.text).width + 12, bx = Math.max(4, Math.min(W - tw - 4, x - tw / 2)), by = y - (a.state === 'walk' ? 70 : 62);
-  ctx.fillStyle = '#ffffff'; ctx.strokeStyle = DEPTS[a.dept].color; ctx.lineWidth = 1.2;
-  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, tw, 18, 5) : ctx.rect(bx, by, tw, 18); ctx.fill(); ctx.stroke();
+  const off = a.bot ? 88 + (a._hov || 0) : a === BOSS ? 76 : a.state === 'walk' ? 70 : 62;
+  const tw = ctx.measureText(a.bubble.text).width + 12, bx = Math.max(4, Math.min(W - tw - 4, x - tw / 2)), by = y - off;
+  ctx.fillStyle = '#ffffff'; ctx.strokeStyle = DEPTS[a.dept] ? DEPTS[a.dept].color : '#d3a332'; ctx.lineWidth = 1.2;
+  rr(bx, by, tw, 18, 5); ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x - 4, by + 18); ctx.lineTo(x, by + 23); ctx.lineTo(x + 4, by + 18); ctx.fill();
   ctx.fillStyle = '#18201b'; ctx.fillText(a.bubble.text, bx + 6, by + 12.5); ctx.restore();
 }
 function drawTooltip(a) {
-  const [x, y] = agentScreen(a), t1 = a.name, t2 = `${DEPTS[a.dept].short} · ${a.role}`;
+  const [x, y] = agentScreen(a), t1 = a.name, t2 = a === BOSS ? 'Dirección · despacho' : `${DEPTS[a.dept].short} · ${a.role}`;
   ctx.save(); ctx.font = '600 11px Archivo, sans-serif'; const w1 = ctx.measureText(t1).width;
   ctx.font = '500 10px Archivo, sans-serif'; const w = Math.max(w1, ctx.measureText(t2).width) + 16;
   const bx = Math.max(4, Math.min(W - w - 4, x + 14)), by = y - 20;
-  ctx.fillStyle = 'rgba(16,19,17,.92)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, w, 32, 6) : ctx.rect(bx, by, w, 32); ctx.fill();
+  ctx.fillStyle = 'rgba(16,19,17,.92)'; rr(bx, by, w, 32, 6); ctx.fill();
   ctx.fillStyle = '#e6eae2'; ctx.font = '600 11px Archivo, sans-serif'; ctx.fillText(t1, bx + 8, by + 13);
   ctx.fillStyle = '#9aa598'; ctx.font = '500 10px Archivo, sans-serif'; ctx.fillText(t2, bx + 8, by + 26); ctx.restore();
 }
-const PLANTS = [{ x: 9.5, y: 0.6 }, { x: 17.5, y: 4.4 }, { x: 9.5, y: 12.5 }, { x: 0.6, y: 12.4 }];
 function render(t) {
   const k = cv.width / W; ctx.setTransform(k, 0, 0, k, 0, 0);
-  ctx.fillStyle = '#cfd5d9'; ctx.fillRect(0, 0, W, H);
-  drawWalls(t); drawFloor();
+  ctx.fillStyle = '#12181a'; ctx.fillRect(0, 0, W, H);
+  drawWalls(t); drawFloor(); drawLights();
   const items = [];
   desks.forEach(d => items.push({ k: d.x + d.w / 2 + d.y + d.d / 2, f: () => drawDesk(d, t) }));
-  chairs.forEach(c => items.push({ k: c.x + c.y - 0.05, f: () => drawChair(c) }));
+  chairs.forEach(c => {
+    const ck = c.key != null ? c.key : c.x + c.y;
+    items.push({ k: ck - 0.02, f: () => drawChair(c, 'seat') });
+    items.push({ k: ck + (c.facing === 's' || c.facing === 'e' ? 0.02 : -0.03), f: () => drawChair(c, 'back') });
+  });
   PLANTS.forEach(p => items.push({ k: p.x + p.y, f: () => drawPlant(p) }));
-  items.push({ k: 25.5, f: drawTable });
-  agents.forEach(a => items.push({ k: a.state === 'meet' && a.target && a.target.key ? a.target.key : a.x + a.y, f: () => drawAgent(a, t) }));
+  FURN.forEach(f => items.push(f));
+  GLASS.forEach(g => items.push({ k: g.k, f: () => drawGlass(g) }));
+  items.push({ k: TABLE.key, f: drawTable });
+  const people = [...agents, BOSS];
+  people.forEach(a => items.push({ k: keyOf(a), f: () => a.bot ? drawBot(a, t) : drawPerson(a, t) }));
   items.sort((a, b) => a.k - b.k).forEach(i => i.f());
-  agents.forEach(drawBubble);
+  const vg = ctx.createRadialGradient(W / 2, H * 0.55, 280, W / 2, H * 0.55, 760);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  people.forEach(drawTag);
+  people.forEach(drawBubble);
   if (hover) drawTooltip(hover);
 }
 function resizeCanvas() {
@@ -891,12 +1172,12 @@ function resizeCanvas() {
 function hitAgent(e) {
   const r = cv.getBoundingClientRect(), lx = (e.clientX - r.left) * W / r.width, ly = (e.clientY - r.top) * H / r.height;
   let best = null;
-  for (const a of agents) { const h = a._hit; if (h && lx >= h[0] && lx <= h[0] + h[2] && ly >= h[1] && ly <= h[1] + h[3]) { if (!best || a.y + a.x > best.y + best.x) best = a; } }
+  for (const a of [...agents, BOSS]) { const h = a._hit; if (h && lx >= h[0] && lx <= h[0] + h[2] && ly >= h[1] && ly <= h[1] + h[3]) { if (!best || a.y + a.x > best.y + best.x) best = a; } }
   return best;
 }
 cv.addEventListener('pointermove', e => { hover = hitAgent(e); cv.style.cursor = hover ? 'pointer' : 'default'; });
 cv.addEventListener('pointerleave', () => { hover = null; });
-cv.addEventListener('click', e => { const a = hitAgent(e); select(a ? { type: 'agent', id: a.id } : null); });
+cv.addEventListener('click', e => { const a = hitAgent(e); select(a ? (a === BOSS ? { type: 'boss' } : { type: 'agent', id: a.id }) : null); });
 
 // ---------- UI
 const fmtDept = d => (DEPTS[d] || SYS);
@@ -905,7 +1186,9 @@ function renderChip() {
   const chip = $('#chip');
   if (!sel) { chip.hidden = true; return; }
   let title, body;
-  if (sel.type === 'agent') {
+  if (sel.type === 'boss') {
+    title = 'carlus · Despacho de dirección'; body = `${statusOf(BOSS)} · equity ${usd(equity())}`;
+  } else if (sel.type === 'agent') {
     const a = agents[sel.id], ins = getIns(a.sym);
     title = `${a.name} · ${DEPTS[a.dept].name}`;
     body = `${a.role} · ${statusOf(a)}${a.dept === 'tec' || a.dept === 'qnt' || a.dept === 'gld' ? ` · ${ins.sym} ${px(ins, ins.p)}` : ''}`;
@@ -917,8 +1200,9 @@ function renderChip() {
   chip.hidden = false;
 }
 function statusOf(a) {
+  if (a === BOSS) return a.state === 'walk' ? a.task : a.state === 'meet' ? 'Presidiendo la reunión' : 'En su despacho';
   if (a.state === 'walk') return a.task;
-  if (a.state === 'meet') return 'En el comité';
+  if (a.state === 'meet') return 'En la sala de reuniones';
   if (a.dept === 'com') return S.meeting ? 'Presidiendo la revisión' : 'Diario de decisiones';
   if (a.dept === 'mac') return a.role === 'Calendario' ? `Vigilando ${S.nextEvent.name}` : 'Leyendo el contexto';
   if (a.dept === 'rsk') return 'Monitorizando límites';
@@ -1040,14 +1324,14 @@ function applyLive(d) {
     e.wins = tr.filter(t => t.profit >= 0).length; e.losses = tr.length - e.wins; e.pnl = tr.reduce((s, t) => s + t.profit, 0);
     e.note = e.pos || e.pend ? '' : 'Esperando la próxima vela';
     if (!first) {
-      ps.filter(p => !LIVE.seenPos.has(p.ticket)).forEach(p => { log('gld', `${a.name} · ${e.name} (MT5): ${p.dir > 0 ? 'compra' : 'venta'} de ${p.volume.toFixed(2)} lotes ${d.symbol} @ ${fmtG(p.entry)}`); say(a, `${p.dir > 0 ? 'BUY' : 'SELL'} ${p.volume.toFixed(2)} @ ${fmtG(p.entry)}`, 3.5); });
-      os.filter(o => !LIVE.seenOrd.has(o.ticket)).forEach(o => { log('gld', `${a.name} · ${e.name} (MT5): ${o.type.replace('_', ' ')} ${fmtG(o.price)}`); say(a, `${o.type.replace('_', ' ')} ${fmtG(o.price)}`, 3); });
+      ps.filter(p => !LIVE.seenPos.has(p.ticket)).forEach(p => { log('gld', `${a.name} (MT5): ${p.dir > 0 ? 'compra' : 'venta'} de ${p.volume.toFixed(2)} lotes ${d.symbol} @ ${fmtG(p.entry)}`); say(a, `${p.dir > 0 ? 'BUY' : 'SELL'} ${p.volume.toFixed(2)} @ ${fmtG(p.entry)}`, 3.5); });
+      os.filter(o => !LIVE.seenOrd.has(o.ticket)).forEach(o => { log('gld', `${a.name} (MT5): ${o.type.replace('_', ' ')} ${fmtG(o.price)}`); say(a, `${o.type.replace('_', ' ')} ${fmtG(o.price)}`, 3); });
     }
   }
   d.trades.filter(t => !LIVE.seenTr.has(t.ticket)).forEach(t => {
     const e = G.eng.find(x => x.id === t.engine), a = e && goldAgent(e);
     S.trades.unshift({ t: S.simT, time: t.time, sym: `${d.symbol} · ${t.engine || t.magic}`, side: t.side, qty: t.volume.toFixed(2) + ' lt', entry: t.entry == null ? t.exit : t.entry, exit: t.exit, pnl: t.profit, reason: `${e ? e.name : 'Magic ' + t.magic} · ${t.reason} (MT5)`, ins: G });
-    if (!first) { log('gld', `${a ? a.name + ' · ' + e.name : 'Magic ' + t.magic} (MT5): cierre por ${t.reason.toLowerCase()} @ ${fmtG(t.exit)}, resultado ${usd(t.profit, true)}`); if (a) say(a, `${t.reason} ${usd(t.profit, true)}`, 3.5); }
+    if (!first) { log('gld', `${a ? a.name : 'Magic ' + t.magic} (MT5): cierre por ${t.reason.toLowerCase()} @ ${fmtG(t.exit)}, resultado ${usd(t.profit, true)}`); if (a) say(a, `${t.reason} ${usd(t.profit, true)}`, 3.5); }
   });
   if (S.trades.length > 200) S.trades.length = 200;
   LIVE.seenPos = new Set(d.positions.map(p => p.ticket)); LIVE.seenOrd = new Set(d.orders.map(o => o.ticket));
