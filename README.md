@@ -1,17 +1,21 @@
 # Botlab Trading Floor
 
-Sala de trading virtual de Botlab: una oficina isométrica animada con 27 agentes simulados organizados en seis departamentos (Análisis técnico, Macroeconomía, Gestión de riesgo, Investigación cuantitativa, Comité de trading y Breakout Gold Pro) que operan una cuenta demo.
+Sala de trading virtual de Botlab para el **Breakout Gold Pro**, el EA de rupturas en XAUUSD. Es una oficina isométrica animada: carlus en su despacho, tres traders (uno por motor: D1, H4 y H4-B) en la sala de estrategias y cinco equipos en la planta abierta, uno por cada filtro de la estrategia.
 
-> **Modo demo.** Precios, agentes y decisiones son simulados. No hay broker conectado ni dinero real.
+> **Modo demo.** Sin el puente MT5, precios y operaciones son simulados sobre una cuenta virtual de $2,000. No hay dinero real.
 
 ## Qué incluye
 
-- Cuenta virtual DEMO-001 con $100,000: patrimonio, P&L de la sesión y exposición nocional.
-- Mercado simulado de MNQ, MES, MGC y MBT con calendario macro ficticio.
-- Comité que combina votos técnico, macro y quant; riesgo puede vetar y aplica stops.
-- Pestañas Sala de trading, Análisis, Operaciones y Actividad.
-- Departamento **Breakout Gold Pro** en XAUUSD con sus tres motores (D1, H4, H4-B): buy/sell stop sobre el máximo/mínimo de la vela anterior con buffer de 0,3× spread, filtro de tendencia en cortos, filtro de volumen 1,5× (16 velas) en H4, persistencia de nivel, SL $10, TP $20/$3, trailing 40/30 puntos y lote dinámico sobre una cuenta asignada de $2,000. Tiempo comprimido: 1 vela H4 = 30 s.
-- Controles: Convocar comité, Pausar, velocidad 1×/3×/8×, Reiniciar y Kill switch.
+- Solo se opera XAUUSD. Tiempo comprimido en simulación: 1 vela H4 = 30 s, 1 día = 6 velas H4.
+- Cada vela cerrada pasa por la cadena de filtros, y cada filtro es un equipo de la sala:
+  1. **Niveles de ruptura:** buy/sell stop en el máximo/mínimo de la vela anterior ± 0,3× spread.
+  2. **Filtro de vela:** solo vende tras una vela bajista; en H4 guarda el mínimo (persistencia de nivel) y descarta niveles ya rotos.
+  3. **Filtro de volumen:** en H4 y H4-B la vela debe tener 1,5× el volumen medio de las 16 anteriores.
+  4. **Riesgo y lotaje:** 0,01 lotes por $300 (D1), $200 (H4) o $150 (H4-B), límite diario −2% y borrado de pendientes al cierre del día.
+  5. **Gestión de la operación:** SL $10, TP $20 (H4-B $3) y trailing desde +40 puntos a 30 puntos.
+- Reuniones periódicas en la sala de reuniones: carlus, los tres traders y un representante de cada filtro.
+- Pestañas Sala de trading, Análisis (velas H4 y tabla de la cadena de filtros por motor), Operaciones y Actividad.
+- Controles: Convocar reunión, Pausar, velocidad 1×/3×/8×, Reiniciar y Kill switch.
 
 ## Cómo abrirlo
 

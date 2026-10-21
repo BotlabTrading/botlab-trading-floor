@@ -194,9 +194,9 @@ th.n,td.n{text-align:right}
 
   <section class="kpis" aria-label="Resumen de la cuenta">
     <div class="kpi"><div class="lab">Patrimonio</div><div class="val" id="kEq">—</div><div class="sub" id="kEqSub">—</div></div>
-    <div class="kpi"><div class="lab">P&amp;L de la sesión</div><div class="val" id="kPnl">—</div><div class="sub">Realizado + no realizado</div></div>
-    <div class="kpi"><div class="lab">Exposición nocional</div><div class="val" id="kExp">—</div><div class="sub" id="kExpSub">—</div></div>
-    <div class="kpi"><div class="lab">Revisiones del comité</div><div class="val" id="kDec">—</div><div class="sub" id="kDecSub">—</div></div>
+    <div class="kpi"><div class="lab">P&amp;L de la sesión</div><div class="val" id="kPnl">—</div><div class="sub" id="kPnlSub">Realizado + flotante</div></div>
+    <div class="kpi"><div class="lab">Motores en mercado</div><div class="val" id="kExp">—</div><div class="sub" id="kExpSub">—</div></div>
+    <div class="kpi"><div class="lab">Reuniones</div><div class="val" id="kDec">—</div><div class="sub" id="kDecSub">—</div></div>
   </section>
 
   <div class="controls">
@@ -207,7 +207,7 @@ th.n,td.n{text-align:right}
       <span class="pill" id="mt5Pill" hidden></span>
     </div>
     <div class="btns">
-      <button class="btn primary" id="bCom" type="button">Convocar comité</button>
+      <button class="btn primary" id="bCom" type="button">Convocar reunión</button>
       <button class="btn" id="bPause" type="button" aria-pressed="false">Pausar</button>
       <div class="speed" role="group" aria-label="Velocidad">
         <button type="button" data-speed="1" aria-pressed="true">1×</button>
@@ -219,7 +219,7 @@ th.n,td.n{text-align:right}
     </div>
   </div>
   <div class="banner" id="killBanner" hidden>
-    <span><b>Kill switch activo.</b> Posiciones cerradas y el comité no puede ejecutar órdenes.</span>
+    <span><b>Kill switch activo.</b> Posiciones cerradas y los traders no colocan órdenes.</span>
     <button class="btn" id="bRearm" type="button">Rearmar trading</button>
   </div>
 
@@ -228,13 +228,13 @@ th.n,td.n{text-align:right}
       <div class="card acct">
         <div class="acct-h">
           <div class="acct-badge">TF</div>
-          <div><b>Cuenta virtual</b><span class="mono muted" style="font-size:11px">DEMO-001</span><span class="tag">USD</span></div>
+          <div><b id="acctName">Cuenta virtual</b><span class="mono muted" style="font-size:11px" id="acctId">DEMO-001</span><span class="tag">USD</span></div>
         </div>
         <dl class="rows">
-          <dt>Capital inicial</dt><dd>$100,000.00</dd>
+          <dt id="aCapL">Capital asignado</dt><dd id="aCap">$2,000.00</dd>
           <dt>Balance</dt><dd id="aBal">—</dd>
-          <dt>No realizado</dt><dd id="aUnr">—</dd>
-          <dt>Comisiones</dt><dd id="aFee">—</dd>
+          <dt>Flotante</dt><dd id="aUnr">—</dd>
+          <dt>Operaciones</dt><dd id="aOps">—</dd>
           <dt>Drawdown desde máximo</dt><dd id="aDD">—</dd>
         </dl>
       </div>
@@ -242,7 +242,7 @@ th.n,td.n{text-align:right}
       <div class="card floor">
         <div class="floor-h">
           <h2><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="2" fill="#a8c46c"/><path d="M4.5 4.5a5 5 0 0 0 0 7M11.5 4.5a5 5 0 0 1 0 7" stroke="#a8c46c" stroke-width="1.4" stroke-linecap="round"/></svg>En el floor</h2>
-          <span class="count" id="agentCount">27</span>
+          <span class="count" id="agentCount">19</span>
         </div>
         <div class="seg" role="tablist" aria-label="Floor">
           <button role="tab" data-sub="sala" aria-selected="false">Sala</button>
@@ -250,12 +250,12 @@ th.n,td.n{text-align:right}
           <button role="tab" data-sub="deptos" aria-selected="true">Departamentos</button>
         </div>
         <div id="subSala" hidden>
-          <div class="eyebrow" style="margin-bottom:4px">Pulso del mercado</div>
+          <div class="eyebrow" style="margin-bottom:4px">Pulso del oro</div>
           <div id="pulseList"></div>
           <div style="margin-top:12px">
-            <div class="eyebrow">Régimen macro</div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:4px"><span class="muted">Risk-off</span><span class="mono" id="riskVal">—</span><span class="muted">Risk-on</span></div>
-            <div class="meter"><i></i><span id="riskBar"></span></div>
+            <div class="eyebrow">Volumen de la última vela H4</div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:4px"><span class="muted">0×</span><span class="mono" id="volVal">—</span><span class="muted">3×</span></div>
+            <div class="meter" title="La marca central es el umbral de 1.5×"><i></i><span id="volBar"></span></div>
             <div style="font-size:12px;margin-top:10px" id="nextEv"></div>
           </div>
         </div>
@@ -263,10 +263,10 @@ th.n,td.n{text-align:right}
           <div class="list" id="agentList"></div>
         </div>
         <div id="subDeptos">
-          <div class="eyebrow" style="margin-bottom:8px">Seis departamentos conectados</div>
+          <div class="eyebrow" style="margin-bottom:8px">Un equipo por filtro de la estrategia</div>
           <div class="list" id="deptList"></div>
         </div>
-        <p class="note">Los agentes representan procesos simulados. Los modelos de IA se incorporarán en una fase posterior.</p>
+        <p class="note">Cada equipo representa un filtro del Breakout Gold Pro y cada trader un motor. Solo se opera XAUUSD.</p>
       </div>
     </aside>
 
@@ -274,11 +274,11 @@ th.n,td.n{text-align:right}
       <section class="view" id="v-sala">
         <div class="card floorview">
           <div class="floorview-h">
-            <h2>El pulso del mercado</h2>
-            <span class="muted" style="font-size:12px">Toca un agente o un departamento para seguirlo</span>
+            <h2>Breakout Gold Pro · XAUUSD</h2>
+            <span class="muted" style="font-size:12px">Toca una persona o un equipo para seguirlo</span>
           </div>
           <div class="canvas-wrap">
-            <canvas id="cv" width="1100" height="700" aria-label="Oficina isométrica: despacho de dirección, sala de estrategias con los tres bots del Breakout Gold Pro, sala de reuniones y planta abierta con los departamentos"></canvas>
+            <canvas id="cv" width="1100" height="700" aria-label="Oficina isométrica: despacho de dirección, sala de estrategias con los tres traders del Breakout Gold Pro, sala de reuniones y planta abierta con un equipo por filtro de la estrategia"></canvas>
             <div class="chip" id="chip" hidden></div>
           </div>
           <div class="legend" id="legend"></div>
@@ -287,7 +287,7 @@ th.n,td.n{text-align:right}
 
       <section class="view" id="v-analisis" hidden>
         <div class="card gold" id="goldCard"></div>
-        <div class="grid2" id="insCards"></div>
+        <div class="card tbl-card" id="filterCard"></div>
       </section>
 
       <section class="view" id="v-operaciones" hidden>
@@ -316,30 +316,21 @@ th.n,td.n{text-align:right}
 (() => {
 'use strict';
 const $ = s => document.querySelector(s);
-const START = 100000, FEE = 0.62, TICK = 0.5, MEET_EVERY = 24;
+const TICK = 0.5, MEET_EVERY = 24;
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// Un equipo por filtro de la estrategia, en el orden en que se aplican a cada vela cerrada
 const DEPTS = {
-  tec: { name: 'Análisis técnico', short: 'Técnico', desc: 'Estructura, volumen y contexto del precio.', color: '#6fae5a', floor: ['#dfe4e9', '#d8dee4'] },
-  mac: { name: 'Macroeconomía', short: 'Macro', desc: 'Contexto económico y calendario simulado.', color: '#e0a03f', floor: ['#ecdcbf', '#e6d4b4'] },
-  rsk: { name: 'Gestión de riesgo', short: 'Riesgo', desc: 'Supervisión de exposición y límites.', color: '#de5f62', floor: ['#ebc9cb', '#e5c0c3'] },
-  qnt: { name: 'Investigación cuantitativa', short: 'Quant', desc: 'Calidad de datos e hipótesis.', color: '#9480dc', floor: ['#dbd4f0', '#d3cbea'] },
-  com: { name: 'Comité de trading', short: 'Comité', desc: 'Revisión conjunta y diario de decisiones.', color: '#4fb2d2', floor: ['#cfe5ec', '#c6dee6'] },
-  gld: { name: 'Breakout Gold Pro', short: 'Gold Pro', desc: 'Robot de rupturas en XAUUSD con tres motores: D1, H4 y H4-B.', color: '#d3a332', floor: ['#f0e1a6', '#e9d895'] },
+  gld: { name: 'Traders del Gold Pro', short: 'Traders', desc: 'Un trader por motor (D1, H4 y H4-B). Colocan y siguen las órdenes.', color: '#d3a332' },
+  niv: { name: 'Niveles de ruptura', short: 'Niveles', desc: 'Máximo y mínimo de la vela anterior ± 0.3 × spread.', color: '#6fae5a' },
+  vel: { name: 'Filtro de vela', short: 'Vela', desc: 'Solo vende tras una vela bajista. En H4 guarda el mínimo (persistencia de nivel).', color: '#9480dc' },
+  vol: { name: 'Filtro de volumen', short: 'Volumen', desc: 'H4 y H4-B: la vela debe tener 1.5× el volumen medio de las 16 anteriores.', color: '#4fb2d2' },
+  rsk: { name: 'Riesgo y lotaje', short: 'Riesgo', desc: 'Lote dinámico, límite diario −2% y borrado de pendientes al cierre del día.', color: '#de5f62' },
+  ges: { name: 'Gestión de la operación', short: 'Gestión', desc: 'Stop loss $10, take profit $20 (H4-B $3) y trailing stop desde +40 puntos.', color: '#e0a03f' },
 };
-const SYS = { name: 'Sistema', color: '#8a9488' };
-
-const INS_DEF = [
-  { sym: 'MNQ', name: 'Micro E-mini Nasdaq-100', p: 21452.25, tick: 0.25, dec: 2, mult: 2, sig: 0.00055, link: 1, max: 2 },
-  { sym: 'MES', name: 'Micro E-mini S&P 500', p: 5987.5, tick: 0.25, dec: 2, mult: 5, sig: 0.00045, link: 0.8, max: 3 },
-  { sym: 'MGC', name: 'Micro Oro', p: 2651.4, tick: 0.1, dec: 1, mult: 10, sig: 0.0004, link: -0.7, max: 3 },
-  { sym: 'MBT', name: 'Micro Bitcoin', p: 67250, tick: 5, dec: 0, mult: 0.1, sig: 0.0011, link: 1.2, max: 6 },
-];
-const EVENTS = [
-  { name: 'IPC EE.UU.', imp: 0.6 }, { name: 'Actas del FOMC', imp: 0.5 }, { name: 'Nóminas no agrícolas', imp: 0.7 },
-  { name: 'PMI manufacturero', imp: 0.35 }, { name: 'Peticiones de desempleo', imp: 0.3 }, { name: 'Ventas minoristas', imp: 0.4 },
-  { name: 'Confianza del consumidor', imp: 0.3 }, { name: 'Subasta del Tesoro a 10 años', imp: 0.35 },
-];
+const FLOW = ['niv', 'vel', 'vol', 'rsk', 'ges'];
+const SYS = { name: 'Sistema', short: 'Sistema', color: '#8a9488' };
+const DIR = { name: 'Dirección', short: 'Dirección', color: '#e9c45c' };
 
 // ---------- utils
 const clamp = (v, a = -1, b = 1) => Math.max(a, Math.min(b, v));
@@ -354,28 +345,28 @@ function clock(t) { const s = Math.floor(9.5 * 3600 + t); const h = Math.floor(s
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // ---------- plano de la oficina (rejilla 20 × 14)
-// Fondo: despacho de dirección, sala de estrategias del Gold Pro y sala de reuniones, con cristaleras.
-// Delante: planta abierta con las bancadas de los departamentos y una zona lounge.
+// Fondo: despacho de dirección, sala de estrategias con los tres traders del Gold Pro y sala de reuniones.
+// Delante: planta abierta con un equipo por filtro de la estrategia, en el orden en que se aplican, y una zona lounge.
 const GX = 20, GY = 14;
 const desks = [], chairs = [], agents = [], rugs = [];
 const NAMES = {
-  tec: ['Lucía', 'Mateo', 'Sofía', 'Hugo', 'Valeria', 'Daniel', 'Martina', 'Pablo', 'Elena', 'Álvaro', 'Carmen', 'Diego'],
-  gld: ['Bot D1', 'Bot H4', 'Bot H4-B'],
-  mac: ['Inés', 'Javier', 'Noa'], rsk: ['Marta', 'Sergio', 'Clara'], qnt: ['Iván', 'Paula', 'Rubén'], com: ['Adriana', 'Tomás', 'Laura'],
+  gld: ['Aurora', 'Álex', 'Nerea'],
+  niv: ['Lucía', 'Mateo', 'Sofía'], vel: ['Hugo', 'Valeria', 'Daniel'], vol: ['Inés', 'Javier', 'Noa'],
+  rsk: ['Marta', 'Sergio', 'Clara'], ges: ['Iván', 'Paula', 'Rubén'],
 };
 const ROLES = {
-  tec: ['Momentum', 'Volumen', 'Estructura'],
-  mac: ['Bancos centrales', 'Calendario', 'Flujos y sentimiento'],
-  rsk: ['Límites de exposición', 'Drawdown', 'Ejecución y stops'],
-  qnt: ['Calidad de datos', 'Reversión a la media', 'Backtesting'],
-  com: ['Presidencia', 'Secretaría · diario', 'Ejecución'],
-  gld: ['Motor D1 · rupturas diarias', 'Motor H4 · rupturas en H4', 'Motor H4-B · cobro rápido'],
+  gld: ['Trader D1 · rupturas diarias', 'Trader H4 · rupturas en H4', 'Trader H4-B · cobro rápido'],
+  niv: ['Máximos y mínimos', 'Colchón de spread', 'Colocación de órdenes'],
+  vel: ['Dirección de la vela', 'Persistencia de nivel', 'Niveles ya rotos'],
+  vol: ['Volumen de la vela', 'Media de 16 velas', 'Validación 1.5×'],
+  rsk: ['Lotaje dinámico', 'Límite diario −2%', 'Cierre del día'],
+  ges: ['Stop loss', 'Take profit', 'Trailing stop'],
 };
 const SKIN = ['#f1c7a3', '#d9a27a', '#b9805a', '#8d5a3b', '#f3d2b5', '#c98f68'];
 const HAIR = ['#2b2420', '#5a3b26', '#1c1c1c', '#8a5a2b', '#3b2a22', '#c79a5b'];
 const ROOMS = [
   { id: 'boss', label: 'DESPACHO DE DIRECCIÓN', x: 0, y: 0, w: 6, h: 5 },
-  { id: 'gld', label: 'SALA DE ESTRATEGIAS · BREAKOUT GOLD PRO', x: 6, y: 0, w: 8, h: 5 },
+  { id: 'gld', label: 'SALA DE ESTRATEGIAS', x: 6, y: 0, w: 8, h: 5 },
   { id: 'meet', label: 'SALA DE REUNIONES', x: 14, y: 0, w: 6, h: 6 },
 ];
 const roomAt = (x, y) => { const r = ROOMS.find(r => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h); return r ? r.id : x >= 15 && y >= 10.5 ? 'lounge' : 'open'; };
@@ -387,72 +378,35 @@ const HEAD_L = { x: 14.5, y: 3.05, key: 17, head: true, facing: 'w' };
 const BOSS = { id: 'boss', dept: 'boss', name: 'carlus', role: 'Dirección', room: 'boss', home: { x: 3, y: 1.15 }, x: 3, y: 1.15,
   state: 'seat', route: [], bubble: null, phase: 1.3, skin: '#e8bd98', hair: '#2b2420', task: '' };
 
-function addAgent(dept, i, home, sym, room = 'open') {
-  agents.push({ id: agents.length, dept, room, name: NAMES[dept][i], role: ROLES[dept][i % 3], sym, home: { ...home }, x: home.x, y: home.y,
+function addAgent(dept, i, home, room = 'open') {
+  agents.push({ id: agents.length, dept, room, name: NAMES[dept][i], role: ROLES[dept][i], home: { ...home }, x: home.x, y: home.y,
     state: 'seat', route: [], bubble: null, phase: Math.random() * 6.28, skin: pick(SKIN), hair: pick(HAIR), task: '' });
 }
 function buildFloor() {
   desks.length = chairs.length = agents.length = rugs.length = 0;
-  const bench = (dept, x0, y, w, syms, idx0 = 0) => syms.forEach((sym, k) => {
-    const x = x0 + k * w;
-    desks.push({ x, y, w, d: 0.8, mons: 2, sym, kind: 'bench' });
-    const home = { x: x + w / 2, y: y + 1.3 };
-    chairs.push({ ...home, facing: 's' }); addAgent(dept, idx0 + k, home, sym);
-  });
-  // Análisis técnico: dos bancadas de seis puestos (tres por instrumento)
-  [6.6, 10.0].forEach((y, r) => bench('tec', 0.8, y, 1.35, [0, 1, 2, 3, 4, 5].map(c => INS_DEF[Math.floor((r * 6 + c) / 3)].sym), r * 6));
-  rugs.push({ dept: 'tec', x: 0.45, y: 6.15, w: 8.8, h: 6.5 });
-  bench('mac', 10.1, 7.0, 1.3, ['MES', 'MGC', 'MBT']); rugs.push({ dept: 'mac', x: 9.75, y: 6.6, w: 4.6, h: 2.65 });
-  bench('rsk', 10.1, 10.4, 1.3, ['MNQ', 'MES', 'MGC']); rugs.push({ dept: 'rsk', x: 9.75, y: 10.0, w: 4.6, h: 2.65 });
-  bench('qnt', 15.2, 7.0, 1.3, ['MES', 'MGC', 'MBT']); rugs.push({ dept: 'qnt', x: 14.85, y: 6.6, w: 4.6, h: 2.65 });
-  // Comité: sentado de forma fija en la sala de reuniones
-  SEATS_N.slice(1, 4).forEach((s, k) => addAgent('com', k, s, 'MNQ', 'meet'));
+  // cada equipo: una bancada de tres puestos y su alfombra
+  const team = (dept, x0, y, w = 1.3) => {
+    [0, 1, 2].forEach(k => {
+      const x = x0 + k * w, home = { x: x + w / 2, y: y + 1.3 };
+      desks.push({ x, y, w, d: 0.8, kind: 'bench', dept });
+      chairs.push({ ...home, facing: 's' }); addAgent(dept, k, home);
+    });
+    rugs.push({ dept, x: x0 - 0.35, y: y - 0.45, w: 3 * w + 0.7, h: 2.65 });
+  };
+  team('niv', 0.8, 6.8); team('vel', 5.4, 6.8); team('vol', 10.1, 6.8); team('rsk', 15.2, 6.8); team('ges', 5.4, 10.3);
   [...SEATS_N, ...SEATS_S, HEAD_L].forEach(s => chairs.push({ ...s }));
-  // Sala de estrategias: un puesto con tres pantallas por bot
+  // Sala de estrategias: un trader por motor, con tres pantallas
   [6.9, 9.4, 11.9].forEach((x, k) => {
-    desks.push({ x, y: 1.9, w: 1.9, d: 0.8, mons: 3, sym: 'XAUUSD', kind: 'gold', engine: ENGINES[k].id });
-    addAgent('gld', k, { x: x + 0.95, y: 3.3 }, 'XAUUSD', 'gld');
-    Object.assign(agents[agents.length - 1], { engine: ENGINES[k].id, bot: true });
+    desks.push({ x, y: 1.9, w: 1.9, d: 0.8, kind: 'gold' });
+    const home = { x: x + 0.95, y: 3.2 };
+    chairs.push({ ...home, facing: 's' }); addAgent('gld', k, home, 'gld');
+    agents[agents.length - 1].engine = ENGINES[k].id;
   });
   // Despacho
-  desks.push({ x: 1.6, y: 1.6, w: 2.8, d: 0.85, mons: 2, sym: 'XAUUSD', kind: 'exec' });
+  desks.push({ x: 1.6, y: 1.6, w: 2.8, d: 0.85, kind: 'exec' });
   chairs.push({ x: 3, y: 1.15, facing: 'n', exec: true }, { x: 2.45, y: 3.2, facing: 's' }, { x: 3.55, y: 3.2, facing: 's' });
   Object.assign(BOSS, { x: BOSS.home.x, y: BOSS.home.y, state: 'seat', route: [], bubble: null, task: '' });
 }
-
-// ---------- simulation state
-let S, INS;
-function newSession() {
-  INS = INS_DEF.map(d => ({ ...d, hist: [], open: d.p, trend: rnd(-0.5, 0.5), emaF: d.p, emaS: d.p, tec: 0, qnt: 0, mac: 0, z: 0, tecDir: 0, last: d.p }));
-  S = { simT: 0, nextTick: 0, nextMeeting: 8, realized: 0, fees: 0, killed: false, paused: S ? S.paused : false, speed: S ? S.speed : 1,
-    riskOn: rnd(-0.3, 0.4), nextEvent: null, meeting: null, trades: [], log: [], logSeq: 0, pos: {}, peak: START, decisions: 0, orders: 0, warm: true, lastDecision: '' };
-  buildFloor();
-  newGold();
-  scheduleEvent();
-  log('sys', 'Sesión DEMO iniciada · cuenta DEMO-001 con $100,000.00 virtuales');
-  // warm-up: 4 simulated minutes so the floor opens mid-session
-  for (let k = 0; k < 480; k++) {
-    S.simT += TICK; tick();
-    if (k % 48 === 47) decide();
-  }
-  S.nextTick = S.simT; S.nextMeeting = S.simT + 10; S.warm = false;
-  agents.forEach(a => { a.bubble = null; });
-}
-
-function scheduleEvent() { S.nextEvent = { ...pick(EVENTS), at: S.simT + rnd(35, 70) }; }
-function log(dept, text) {
-  S.log.push({ id: ++S.logSeq, t: S.simT, dept, text });
-  if (S.log.length > 300) S.log.shift();
-}
-function say(a, text, dur = 2.6) { if (!S.warm && a) a.bubble = { text, until: S.simT + dur, born: S.simT }; }
-const agentsOf = d => agents.filter(a => a.dept === d);
-
-function unrealOf(ins) { const p = S.pos[ins.sym]; return p ? (ins.p - p.avg) * p.qty * ins.mult : 0; }
-function unreal() { return INS.reduce((s, i) => s + unrealOf(i), 0) + goldUnreal(); }
-function balance() { return START + S.realized - S.fees + (LIVE.on ? 0 : G.realized); }
-function equity() { return balance() + unreal(); }
-function notional() { return INS.reduce((s, i) => s + (S.pos[i.sym] ? Math.abs(S.pos[i.sym].qty) * i.p * i.mult : 0), 0) + (LIVE.on ? 0 : G.eng.reduce((s, e) => s + (e.pos ? e.pos.lots * OZ * G.p : 0), 0)); }
-const getIns = sym => sym === 'XAUUSD' ? G : INS.find(i => i.sym === sym);
 
 // ---------- Breakout Gold Pro (XAUUSD). Reglas de la ficha técnica; tiempo comprimido: 1 vela H4 = 30 s, 1 día = 6 velas H4.
 const GOLD_ALLOC = 2000, H4_TICKS = 60, H4_PER_D1 = 6, OZ = 100;
@@ -461,18 +415,46 @@ const ENGINES = [
   { id: 'H4', name: 'Motor H4', tf: 'H4', tp: 20, sl: 10, trail: true, volF: true, persist: true, lotPer: 200 },
   { id: 'H4B', name: 'Motor H4-B', tf: 'H4', tp: 3, sl: 10, trail: false, volF: true, persist: true, lotPer: 150 },
 ];
-let G;
-const LIVE = { on: false, bridge: false, err: '', d: null, seeded: false, seenPos: new Set(), seenOrd: new Set(), seenTr: new Set() };
+let S, G;
+const LIVE = { on: false, bridge: false, err: '', d: null, seeded: false, sig: '', d1sig: '', seenPos: new Set(), seenOrd: new Set(), seenTr: new Set() };
 const r2 = v => Math.round(v * 100) / 100;
 const fmtG = v => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const engLabel = id => id === 'H4B' ? 'H4-B' : id;
 const newCandle = p => ({ o: p, h: p, l: p, c: p, v: 0, vm: Math.exp(gauss() * 0.55) });
+const agentsOf = d => agents.filter(a => a.dept === d);
+const member = (d, i) => agentsOf(d)[i];
 const goldAgent = e => agents.find(a => a.dept === 'gld' && a.engine === e.id);
-const goldUnreal = () => G && !LIVE.on ? G.eng.reduce((s, e) => s + (e.pos ? (G.p - e.pos.entry) * e.pos.dir * e.pos.lots * OZ : 0), 0) : 0;
+const engPnl = e => e.pos.profit != null ? e.pos.profit : (G.p - e.pos.entry) * e.pos.dir * e.pos.lots * OZ;
+const goldUnreal = () => G.eng.reduce((s, e) => s + (e.pos ? engPnl(e) : 0), 0);
 const goldLots = e => Math.max(0.01, Math.floor((GOLD_ALLOC + G.realized) / e.lotPer) / 100);
+// cuenta: la simulada ($2,000 asignados) o, con el puente, la de MetaTrader 5
+const realized = () => LIVE.on ? LIVE.d.trades.reduce((s, t) => s + t.profit, 0) : G.realized;
+const balance = () => LIVE.on ? LIVE.d.account.balance : GOLD_ALLOC + G.realized;
+const unreal = () => LIVE.on ? LIVE.d.account.profit : goldUnreal();
+const equity = () => LIVE.on ? LIVE.d.account.equity : balance() + goldUnreal();
+const dayDD = () => (equity() - S.startEq) / S.startEq;
+
+function newSession() {
+  S = { simT: 0, nextTick: 0, nextMeeting: 8, killed: false, paused: S ? S.paused : false, speed: S ? S.speed : 1,
+    meeting: null, trades: [], log: [], logSeq: 0, peak: GOLD_ALLOC, startEq: GOLD_ALLOC, reviews: 0, warm: true, lastDecision: '' };
+  buildFloor();
+  newGold();
+  log('sys', 'Sesión DEMO iniciada · Breakout Gold Pro en XAUUSD con $2,000.00 virtuales');
+  // calentamiento: 4 minutos simulados para que la sala abra con la sesión en marcha
+  for (let k = 0; k < 480; k++) { S.simT += TICK; tick(); }
+  S.nextTick = S.simT; S.nextMeeting = S.simT + 10; S.warm = false;
+  [...agents, BOSS].forEach(a => { a.bubble = null; });
+}
+function log(dept, text) {
+  S.log.push({ id: ++S.logSeq, t: S.simT, dept, text });
+  if (S.log.length > 300) S.log.shift();
+}
+function say(a, text, dur = 2.6) { if (!S.warm && a) a.bubble = { text, until: S.simT + dur, born: S.simT }; }
+
 function newGold() {
-  G = { sym: 'XAUUSD', name: 'Oro al contado', dec: 2, tick: 0.01, p: 2652.4, hist: [], open: 0, spread: 0.25, trend: 0, tec: 0, qnt: 0, mac: 0, z: 0,
-    h4: [], d1: [], cur: null, d1cur: null, n: 0, h4Count: 0, realized: 0,
-    eng: ENGINES.map(e => ({ ...e, pend: null, pos: null, savedLow: null, wins: 0, losses: 0, pnl: 0, note: 'Esperando la próxima vela', volRatio: null })) };
+  G = { sym: 'XAUUSD', name: 'Oro al contado', dec: 2, tick: 0.01, p: 2652.4, hist: [], open: 0, spread: 0.25, trend: 0,
+    h4: [], d1: [], cur: null, d1cur: null, n: 0, h4Count: 0, realized: 0, volRatio: null,
+    eng: ENGINES.map(e => ({ ...e, pend: null, pos: null, savedLow: null, wins: 0, losses: 0, pnl: 0, note: 'Esperando la próxima vela', chk: null })) };
   G.cur = newCandle(G.p);
   for (let k = 0; k < 24 * H4_TICKS; k++) goldStep(true); // 4 días de historia previa
   G.open = G.p;
@@ -482,7 +464,7 @@ function goldStep(history) {
   if (Math.random() < 0.01) G.trend = rnd(-1, 1);
   G.trend = clamp(G.trend + gauss() * 0.05);
   const prev = G.p;
-  G.p = Math.max(1, r2(G.p + 0.6 * gauss() + G.trend * 0.06 - (S ? S.riskOn : 0) * 0.03));
+  G.p = Math.max(1, r2(G.p + 0.6 * gauss() + G.trend * 0.06));
   G.spread = r2(rnd(0.18, 0.34));
   G.hist.push(G.p); if (G.hist.length > 480) G.hist.shift();
   const c = G.cur; c.h = Math.max(c.h, G.p); c.l = Math.min(c.l, G.p); c.c = G.p;
@@ -502,16 +484,20 @@ function goldOpen(e, dir, level) {
   const lots = goldLots(e), a = goldAgent(e);
   e.pos = { dir, lots, entry: level, sl: r2(level - dir * e.sl), tp: r2(level + dir * e.tp), t: S.simT, trailing: false };
   e.pend = null; e.note = '';
-  log('gld', `${a.name}: ${dir > 0 ? 'compra' : 'venta'} de ${lots.toFixed(2)} lotes XAUUSD @ ${fmtG(level)} (SL ${fmtG(e.pos.sl)} · TP ${fmtG(e.pos.tp)})`);
+  log('gld', `${a.name} (${engLabel(e.id)}): ${dir > 0 ? 'compra' : 'venta'} de ${lots.toFixed(2)} lotes XAUUSD @ ${fmtG(level)}`);
   say(a, `${dir > 0 ? 'BUY' : 'SELL'} ${lots.toFixed(2)} @ ${fmtG(level)}`, 3.2);
+  const m = member('ges', 0);
+  log('ges', `${m.name}: ${engLabel(e.id)} protegido con SL ${fmtG(e.pos.sl)} y TP ${fmtG(e.pos.tp)}${e.trail ? ' · trailing desde +40 puntos' : ''}`);
+  say(m, `${engLabel(e.id)} SL ${fmtG(e.pos.sl)}`); say(member('ges', 1), `${engLabel(e.id)} TP ${fmtG(e.pos.tp)}`);
 }
 function goldClose(e, price, reason) {
   const P = e.pos, a = goldAgent(e), pnl = (price - P.entry) * P.dir * P.lots * OZ;
   G.realized += pnl; e.pnl += pnl; pnl >= 0 ? e.wins++ : e.losses++;
-  S.trades.unshift({ t: S.simT, sym: 'XAUUSD · ' + e.id, side: P.dir > 0 ? 'Largo' : 'Corto', qty: P.lots.toFixed(2) + ' lt', entry: P.entry, exit: price, pnl, reason: `${e.name} · ${reason}`, ins: G });
+  S.trades.unshift({ t: S.simT, sym: 'XAUUSD · ' + engLabel(e.id), side: P.dir > 0 ? 'Largo' : 'Corto', qty: P.lots.toFixed(2) + ' lt', entry: P.entry, exit: price, pnl, reason: `${e.name} · ${reason}`, ins: G });
   if (S.trades.length > 200) S.trades.pop();
   e.pos = null; e.note = 'Esperando la próxima vela';
-  log('gld', `${a.name}: ${reason.toLowerCase()} en XAUUSD @ ${fmtG(price)}, resultado ${usd(pnl, true)}`);
+  const m = reason === 'Take profit' ? member('ges', 1) : reason === 'Kill switch' ? member('rsk', 1) : member('ges', reason === 'Trailing stop' ? 2 : 0);
+  log(m.dept, `${m.name}: ${reason.toLowerCase()} en ${engLabel(e.id)} @ ${fmtG(price)}, resultado ${usd(pnl, true)}`);
   say(a, `${reason} ${usd(pnl, true)}`, 3.2);
 }
 function goldManage() {
@@ -520,7 +506,10 @@ function goldManage() {
       const P = e.pos, prof = (G.p - P.entry) * P.dir;
       if (e.trail && prof >= 0.40) { // trailing: se activa a +40 puntos y sigue a 30 puntos
         const ns = r2(G.p - P.dir * 0.30);
-        if ((ns - P.sl) * P.dir > 0) { if (!P.trailing) { P.trailing = true; say(goldAgent(e), 'Trailing activo'); } P.sl = ns; }
+        if ((ns - P.sl) * P.dir > 0) {
+          if (!P.trailing) { P.trailing = true; const m = member('ges', 2); log('ges', `${m.name}: trailing activo en ${engLabel(e.id)}, stop a ${fmtG(ns)}`); say(m, `Trailing ${engLabel(e.id)}`); }
+          P.sl = ns;
+        }
       }
       const hitTP = (G.p - P.tp) * P.dir >= 0, hitSL = (G.p - P.sl) * P.dir <= 0;
       if (hitTP) goldClose(e, P.tp, 'Take profit');
@@ -532,152 +521,88 @@ function goldManage() {
   }
 }
 function goldPlace(newDay) {
-  if (newDay) G.eng.forEach(e => { e.pend = null; }); // borrado de pendientes al cierre del día
-  const blocked = S.killed ? 'Kill switch activo' : (equity() - START) / START < -0.02 ? 'Veto de riesgo (−2% sesión)' : '';
+  if (newDay) {
+    const m = member('rsk', 2), n = G.eng.filter(e => e.pend).length;
+    G.eng.forEach(e => { e.pend = null; });
+    log('rsk', `${m.name}: cierre del día, ${n ? `borradas las órdenes pendientes de ${n} motor${n > 1 ? 'es' : ''}` : 'no había pendientes que borrar'}`);
+    say(m, 'Cierre del día');
+  }
+  filterCandle(newDay, false);
+}
+// La cadena de filtros que recorre cada vela cerrada. En simulación coloca las órdenes;
+// con MT5 solo explica lo que dicen las reglas (las órdenes reales las pone el EA).
+function filterCandle(newDay, live) {
+  const P4 = G.h4[G.h4.length - 1]; if (!P4) return;
+  const bear = P4.c < P4.o, mv = member('vel', 0);
+  log('vel', `${mv.name}: vela H4 cerrada ${bear ? 'bajista, se permiten compras y ventas' : 'alcista, solo compras'}`);
+  say(mv, bear ? 'Vela bajista ▼' : 'Vela alcista ▲');
+  const base = G.h4.slice(-17, -1);
+  const ratio = base.length ? P4.v / ((base.reduce((s, c) => s + c.v, 0) / base.length) || 1) : null;
+  G.volRatio = ratio;
+  if (ratio != null) {
+    const m = member('vol', 2), ok = ratio >= 1.5;
+    log('vol', `${m.name}: volumen ${ratio.toFixed(2)}× la media de 16 velas, H4 y H4-B ${ok ? 'validados' : 'bloqueados'}`);
+    say(m, `Volumen ${ratio.toFixed(2)}× ${ok ? '✓' : '✗'}`); say(member('vol', 0), `Vela ${Math.round(P4.v)}`);
+  }
+  const blocked = S.killed ? 'Kill switch activo' : dayDD() < -0.02 ? 'Límite diario −2%' : '';
   for (const e of G.eng) {
     if (e.tf === 'D1' && !newDay) continue;
-    e.pend = null;
-    if (e.pos) continue;
-    if (blocked) { e.note = blocked; continue; }
-    const P = e.tf === 'D1' ? G.d1[G.d1.length - 1] : G.h4[G.h4.length - 1], a = goldAgent(e);
+    const P = e.tf === 'D1' ? G.d1[G.d1.length - 1] : P4, id = engLabel(e.id);
     if (!P) continue;
-    if (e.volF) {
-      const base = G.h4.slice(-17, -1), avg = base.reduce((s, c) => s + c.v, 0) / base.length;
-      e.volRatio = P.v / avg;
-      if (e.volRatio < 1.5) { e.note = `Sin volumen (${e.volRatio.toFixed(2)}× la media)`; continue; }
-    }
-    const buf = 0.3 * G.spread;
+    const chk = e.chk = { tf: e.tf, dir: P.c < P.o ? -1 : 1, vol: e.volF ? ratio : null, buy: null, sell: null, low: null, block: '', lots: live ? null : goldLots(e) };
+    if (!live) e.pend = null;
+    if (e.pos) { chk.block = 'Posición abierta'; continue; }
+    if (blocked) { chk.block = e.note = blocked; const m = member('rsk', 1); log('rsk', `${m.name}: veto a ${id}, ${blocked.toLowerCase()}`); say(m, `Veto ${id}`); continue; }
+    if (e.volF && !(ratio >= 1.5)) { chk.block = `Sin volumen (${ratio != null ? ratio.toFixed(2) + '×' : 'sin datos'})`; e.note = chk.block; continue; }
+    const buf = 0.3 * G.spread, broken = [];
     let buy = r2(P.h + buf), sell = null;
-    if (G.p >= buy) buy = null; // nivel ya roto
-    if (P.c < P.o) { // solo vende si la vela anterior fue bajista
+    if (G.p >= buy) { broken.push(`buy ${fmtG(buy)}`); buy = null; }
+    if (P.c < P.o) {
       let low = P.l;
-      if (e.persist && e.savedLow != null && P.l > e.savedLow) low = e.savedLow;
-      e.savedLow = low;
+      if (e.persist && e.savedLow != null && P.l > e.savedLow) {
+        low = e.savedLow; const m = member('vel', 1);
+        log('vel', `${m.name}: ${id} mantiene el mínimo guardado ${fmtG(low)} (persistencia de nivel)`); say(m, `${id} mínimo ${fmtG(low)}`);
+      }
+      e.savedLow = chk.low = low;
       sell = r2(low - buf);
-      if (G.p <= sell) sell = null;
+      if (G.p <= sell) { broken.push(`sell ${fmtG(sell)}`); sell = null; }
     }
-    if (buy == null && sell == null) { e.note = 'Sin niveles válidos en esta vela'; continue; }
-    e.pend = { buy, sell }; e.note = '';
-    log('gld', `${a.name}: ${[buy != null ? `buy stop ${fmtG(buy)}` : '', sell != null ? `sell stop ${fmtG(sell)}` : ''].filter(Boolean).join(' · ')}${e.volF ? ` (volumen ${e.volRatio.toFixed(2)}×)` : ''}`);
-    say(a, buy != null ? `Buy stop ${fmtG(buy)}` : `Sell stop ${fmtG(sell)}`, 3);
+    if (broken.length) { const m = member('vel', 2); log('vel', `${m.name}: ${id} descarta ${broken.join(' y ')}, el precio ya ha pasado el nivel`); say(m, `${id} nivel roto`); }
+    chk.buy = buy; chk.sell = sell;
+    if (buy == null && sell == null) { chk.block = e.note = 'Sin niveles válidos'; continue; }
+    const mn = member('niv', 2), txt = [buy != null ? `buy stop ${fmtG(buy)}` : '', sell != null ? `sell stop ${fmtG(sell)}` : ''].filter(Boolean).join(' · ');
+    log('niv', `${mn.name}: ${id} ${txt} (vela ${e.tf} ${fmtG(P.l)}–${fmtG(P.h)}, colchón ${buf.toFixed(2)})${live ? ' · según reglas, las órdenes reales las pone el EA' : ''}`);
+    say(member('niv', 0), `${e.tf} máx ${fmtG(P.h)}`); say(mn, `${id} ${buy != null ? 'BS ' + fmtG(buy) : 'SS ' + fmtG(sell)}`);
+    if (!live) {
+      e.pend = { buy, sell }; e.note = '';
+      say(goldAgent(e), buy != null ? `Buy stop ${fmtG(buy)}` : `Sell stop ${fmtG(sell)}`, 3);
+      say(member('rsk', 0), `${id} ${chk.lots.toFixed(2)} lt`);
+    }
   }
 }
 
 function tick() {
-  S.riskOn = clamp(S.riskOn + gauss() * 0.02 - S.riskOn * 0.004);
   goldStep(false);
-  for (const ins of INS) {
-    if (Math.random() < 0.01) ins.trend = rnd(-1, 1);
-    ins.trend = clamp(ins.trend + gauss() * 0.05);
-    const drift = ins.sig * (ins.trend * 0.13 + ins.link * S.riskOn * 0.07);
-    ins.last = ins.p;
-    ins.p = Math.max(ins.tick, Math.round(ins.p * Math.exp(drift + ins.sig * gauss()) / ins.tick) * ins.tick);
-    ins.hist.push(ins.p); if (ins.hist.length > 480) ins.hist.shift();
-    ins.emaF += (ins.p - ins.emaF) * (2 / 9); ins.emaS += (ins.p - ins.emaS) * (2 / 31);
-    ins.tec = clamp((ins.emaF - ins.emaS) / (ins.p * ins.sig * 3));
-    const w = ins.hist.slice(-60), m = w.reduce((a, b) => a + b, 0) / w.length;
-    const sd = Math.sqrt(w.reduce((a, b) => a + (b - m) ** 2, 0) / w.length) || ins.p * ins.sig;
-    ins.z = (ins.p - m) / sd;
-    ins.qnt = clamp(-ins.z / 2.2);
-    ins.mac = clamp(ins.link * S.riskOn * 1.1 + gauss() * 0.03);
-    const nd = ins.tec > 0.35 ? 1 : ins.tec < -0.35 ? -1 : ins.tecDir;
-    if (nd !== ins.tecDir && nd !== 0) {
-      ins.tecDir = nd;
-      const a = pick(agents.filter(x => x.dept === 'tec' && x.sym === ins.sym && x.state === 'seat')) || null;
-      log('tec', `${a ? a.name + ': ' : ''}cambio de sesgo en ${ins.sym} → ${nd > 0 ? 'alcista' : 'bajista'} (EMA 8/30, señal ${sgn(ins.tec)})`);
-      say(a, `${ins.sym} ${nd > 0 ? '▲ alcista' : '▼ bajista'}`, 3.2);
-    }
-  }
-  // risk stops
-  for (const ins of INS) {
-    const u = unrealOf(ins);
-    if (S.pos[ins.sym] && u < -START * 0.006) {
-      const a = agents.find(x => x.dept === 'rsk' && x.role.startsWith('Ejecución'));
-      log('rsk', `${a.name}: stop de riesgo en ${ins.sym}, pérdida ${usd(u)} supera el 0.6% del capital`);
-      say(a, `Stop ${ins.sym}`, 3);
-      execute(ins, 0, 'Stop de riesgo');
-    }
-  }
-  // macro calendar
-  if (S.simT >= S.nextEvent.at) {
-    const ev = S.nextEvent, shock = gauss() * ev.imp * 0.6;
-    S.riskOn = clamp(S.riskOn + shock);
-    INS.forEach(i => { i.p = Math.max(i.tick, Math.round(i.p * Math.exp(i.link * shock * i.sig * 5) / i.tick) * i.tick); });
-    const a = agents.find(x => x.dept === 'mac' && x.role === 'Calendario');
-    log('mac', `${a.name}: dato publicado, ${ev.name}. Sesgo ${shock >= 0 ? 'risk-on' : 'risk-off'} ${sgn(shock)} (régimen ${sgn(S.riskOn)})`);
-    say(a, `${ev.name}: ${shock >= 0 ? 'risk-on' : 'risk-off'}`, 3.5);
-    scheduleEvent();
-  }
-  const eq = equity(); S.peak = Math.max(S.peak, eq);
+  S.peak = Math.max(S.peak, equity());
   if (!S.warm && Math.random() < 0.3) chatter();
 }
-
 function chatter() {
   const a = pick(agents.filter(x => x.state === 'seat' && !(x.bubble && x.bubble.until > S.simT)));
   if (!a) return;
-  const ins = getIns(a.sym);
-  const ge = a.dept === 'gld' ? G.eng.find(e => e.id === a.engine) : null;
+  const P = G.h4[G.h4.length - 1] || G.cur, open = G.eng.filter(e => e.pos);
+  const ge = a.engine ? G.eng.find(e => e.id === a.engine) : null;
   const lines = {
-    gld: ge ? [`XAUUSD ${fmtG(G.p)}`, `Spread ${Math.round(G.spread * 100)} pts`, ge.pos ? `${ge.pos.dir > 0 ? 'Largo' : 'Corto'} ${usd((G.p - ge.pos.entry) * ge.pos.dir * ge.pos.lots * OZ, true)}` : ge.pend ? 'Órdenes listas' : 'Esperando vela'] : [],
-    tec: [`${ins.sym} ${ins.tec > 0 ? '▲' : '▼'} ${sgn(ins.tec)}`, `Volumen ${ins.sym} +${Math.round(rnd(4, 38))}%`, `Soporte ${px(ins, Math.min(...ins.hist.slice(-80)))}`, `Resistencia ${px(ins, Math.max(...ins.hist.slice(-80)))}`],
-    mac: [`Régimen ${sgn(S.riskOn)}`, `Próximo: ${S.nextEvent.name}`, `${ins.sym} sesgo ${sgn(ins.mac)}`],
-    rsk: [`Exposición ${Math.round(notional() / equity() * 100)}%`, `DD ${pct((equity() - S.peak) / S.peak, 2)}`, `Límites OK`],
-    qnt: [`z ${ins.sym} ${ins.z.toFixed(2)}`, `Datos ${ins.sym} OK`, `Hipótesis ${ins.sym} ${ins.qnt > 0 ? 'rebote' : 'giro'}`],
-    com: [`Diario actualizado`, `Revisando ${pick(INS).sym}`, `${Object.keys(S.pos).length} posiciones`],
+    gld: ge ? [`XAUUSD ${fmtG(G.p)}`, `Spread ${Math.round(G.spread * 100)} pts`, ge.pos ? `${ge.pos.dir > 0 ? 'Largo' : 'Corto'} ${usd(engPnl(ge), true)}` : ge.pend ? 'Órdenes listas' : 'Esperando vela'] : [],
+    niv: [`Máx previo ${fmtG(P.h)}`, `Mín previo ${fmtG(P.l)}`, `Colchón ${(0.3 * G.spread).toFixed(2)}`],
+    vel: [`Vela ${P.c < P.o ? 'bajista ▼' : 'alcista ▲'}`, ...G.eng.filter(e => e.persist && e.savedLow != null).map(e => `${engLabel(e.id)} mín ${fmtG(e.savedLow)}`), 'Niveles vigentes'],
+    vol: [G.volRatio != null ? `Volumen ${G.volRatio.toFixed(2)}×` : 'Midiendo volumen', 'Media de 16 velas', 'Umbral 1.5×'],
+    rsk: [LIVE.on ? `Balance ${usd(balance())}` : `Lote D1 ${goldLots(G.eng[0]).toFixed(2)}`, `DD día ${pct(dayDD(), 2)}`, dayDD() > -0.02 ? 'Límite −2% OK' : 'Límite −2% tocado'],
+    ges: open.length ? open.flatMap(e => [`${engLabel(e.id)} SL ${fmtG(e.pos.sl)}`, `${engLabel(e.id)} TP ${fmtG(e.pos.tp)}`]) : ['Sin posiciones', 'Trailing listo'],
   }[a.dept];
   say(a, pick(lines), 2.4);
 }
 
-function execute(ins, qty, reason) {
-  const cur = S.pos[ins.sym];
-  if (cur && (qty === 0 || Math.sign(qty) !== Math.sign(cur.qty))) {
-    const pnl = (ins.p - cur.avg) * cur.qty * ins.mult, fee = Math.abs(cur.qty) * FEE;
-    S.realized += pnl; S.fees += fee;
-    S.trades.unshift({ t: S.simT, sym: ins.sym, side: cur.qty > 0 ? 'Largo' : 'Corto', qty: Math.abs(cur.qty), entry: cur.avg, exit: ins.p, pnl: pnl - fee - Math.abs(cur.qty) * FEE, reason, ins });
-    if (S.trades.length > 200) S.trades.pop();
-    delete S.pos[ins.sym]; S.orders++;
-  }
-  if (qty !== 0 && !S.pos[ins.sym]) {
-    S.pos[ins.sym] = { qty, avg: ins.p, t: S.simT };
-    S.fees += Math.abs(qty) * FEE; S.orders++;
-  }
-}
-
-function decide() {
-  S.decisions++;
-  const chair = agents.find(a => a.dept === 'com' && a.role === 'Presidencia');
-  if (S.killed) { log('com', `${chair.name}: comité reunido, sin ejecución porque el kill switch está activo`); return; }
-  const eq = equity(), dd = (eq - START) / START;
-  const actions = [];
-  for (const ins of INS) {
-    const score = 0.45 * ins.tec + 0.2 * ins.qnt + 0.35 * ins.mac;
-    ins.score = score;
-    const cur = S.pos[ins.sym], dir = cur ? Math.sign(cur.qty) : 0;
-    const votes = `téc ${sgn(ins.tec)} · macro ${sgn(ins.mac)} · quant ${sgn(ins.qnt)}`;
-    if (dir && (Math.sign(score) !== dir || Math.abs(score) < 0.1)) {
-      const u = unrealOf(ins);
-      execute(ins, 0, 'Decisión del comité');
-      actions.push(`cierra ${ins.sym} (${usd(u, true)})`);
-      log('com', `${chair.name}: cierre de ${dir > 0 ? 'largo' : 'corto'} en ${ins.sym} @ ${px(ins, ins.p)}. Votos: ${votes}`);
-    }
-    if (Math.abs(score) > 0.35 && !S.pos[ins.sym]) {
-      const want = Math.sign(score);
-      let qty = Math.max(1, Math.min(ins.max, Math.round(eq * 0.2 * Math.abs(score) * 1.6 / (ins.p * ins.mult))));
-      const proj = (notional() + qty * ins.p * ins.mult) / eq;
-      const rk = agents.find(a => a.dept === 'rsk' && a.role.startsWith('Límites'));
-      if (dd < -0.02) { log('rsk', `${rk.name}: veto a ${ins.sym}, la sesión pierde ${pct(dd)} (límite −2.00%)`); say(rk, `Veto ${ins.sym}`); continue; }
-      if (proj > 1.5) { log('rsk', `${rk.name}: veto a ${ins.sym}, la exposición iría a ${Math.round(proj * 100)}% (límite 150%)`); say(rk, `Veto ${ins.sym}`); continue; }
-      execute(ins, want * qty, 'Decisión del comité');
-      actions.push(`${want > 0 ? 'LARGO' : 'CORTO'} ${qty} ${ins.sym}`);
-      log('com', `${chair.name}: ${want > 0 ? 'compra' : 'venta'} de ${qty} ${ins.sym} @ ${px(ins, ins.p)}. Votos: ${votes} · riesgo OK (expo ${Math.round(proj * 100)}%)`);
-    }
-  }
-  if (!actions.length) log('com', `${chair.name}: sin cambios, se mantienen ${Object.keys(S.pos).length} posiciones abiertas`);
-  S.lastDecision = actions.length ? actions.join(' · ') : 'Mantener';
-  say(chair, actions.length ? actions[0] : 'Mantener', 3.5);
-}
-
-// ---------- reunión: carlus, los tres bots del Gold Pro y un representante por departamento van a la sala de reuniones
+// ---------- reunión: carlus, los tres traders y un representante de cada filtro van a la sala de reuniones
 function routeTo(a, seat) {
   const path = [];
   if (a === BOSS) path.push({ x: 4.9, y: a.y }, { x: 4.9, y: 4.4 }, { x: 4.6, y: 5.6 });
@@ -690,41 +615,49 @@ function routeTo(a, seat) {
   return path;
 }
 function sayAt(a, text, delay, dur) { if (!S.warm && a) a.bubble = { text, born: S.simT + delay, until: S.simT + delay + dur }; }
-const engPnl = e => e.pos.profit != null ? e.pos.profit : (G.p - e.pos.entry) * e.pos.dir * e.pos.lots * OZ;
 function convene(manual) {
   if (S.meeting) return;
-  const reps = ['tec', 'mac', 'rsk', 'qnt'].map(d => {
-    const list = agentsOf(d).filter(a => a.state === 'seat');
-    return d === 'tec' ? pick(list) : list[0];
-  });
-  const plan = [[BOSS, HEAD_L], ...agentsOf('gld').map((b, k) => [b, SEATS_S[k]]), [reps[0], SEATS_S[3]], [reps[1], SEATS_S[4]], [reps[2], SEATS_N[0]], [reps[3], SEATS_N[4]]];
+  const reps = FLOW.map(d => pick(agentsOf(d).filter(a => a.state === 'seat')) || member(d, 0));
+  const repSeats = [SEATS_S[3], SEATS_S[4], SEATS_N[1], SEATS_N[2], SEATS_N[3]];
+  const plan = [[BOSS, HEAD_L], ...agentsOf('gld').map((b, k) => [b, SEATS_S[k]]), ...reps.map((a, k) => [a, repSeats[k]])];
   plan.forEach(([a, seat]) => {
     a.path = routeTo(a, seat); a.route = [...a.path, seat]; a.seat = seat; a.returning = false; a.state = 'walk';
-    a.task = a === BOSS ? 'Hacia la sala de reuniones' : 'Hacia el comité';
+    a.task = a === BOSS ? 'Hacia la sala de reuniones' : 'Hacia la reunión';
   });
   S.meeting = { phase: 'gather', members: plan.map(p => p[0]), until: 0 };
-  log('com', manual ? 'Reunión convocada manualmente: carlus, los bots del Gold Pro y un representante por departamento' : 'Revisión periódica: carlus, los bots del Gold Pro y un representante por departamento a la sala de reuniones');
+  log('dir', `carlus: ${manual ? 'convoca una reunión' : 'reunión periódica'} con los tres traders y un representante de cada filtro`);
+}
+function reportOf(a) {
+  const P = G.h4[G.h4.length - 1] || G.cur, open = G.eng.filter(e => e.pos).length;
+  if (a.dept === 'gld') { const e = G.eng.find(x => x.id === a.engine); return e.pos ? `${e.pos.dir > 0 ? 'Largo' : 'Corto'} ${usd(engPnl(e), true)}` : e.pend ? 'Órdenes listas' : 'Esperando vela'; }
+  return {
+    niv: `${G.eng.filter(e => e.pend).length} motores con órdenes`,
+    vel: `Última vela ${P.c < P.o ? 'bajista' : 'alcista'}`,
+    vol: G.volRatio != null ? `Volumen ${G.volRatio.toFixed(2)}×` : 'Sin datos de volumen',
+    rsk: `DD día ${pct(dayDD(), 2)}`,
+    ges: open ? `${open} en mercado` : 'Sin posiciones',
+  }[a.dept];
+}
+function review() {
+  S.reviews++;
+  const parts = G.eng.map(e => `${engLabel(e.id)} ${e.pos ? (e.pos.dir > 0 ? 'largo ' : 'corto ') + usd(engPnl(e), true) : e.pend ? 'con pendientes' : 'en espera'}`);
+  S.lastDecision = parts.join(' · ');
+  log('dir', `carlus: reunión cerrada. ${parts.join(', ')}. ${S.killed ? 'Trading detenido por el kill switch.' : 'Se mantienen las reglas de los tres motores.'}`);
 }
 function updateMeeting() {
   const M = S.meeting; if (!M) return;
   if (M.phase === 'gather' && M.members.every(a => a.state === 'meet')) {
     M.phase = 'discuss';
-    sayAt(BOSS, pick(['¿Cómo vamos?', 'Resumen rápido, equipo', 'A ver esos números']), 0, 2.4);
+    sayAt(BOSS, pick(['¿Cómo vamos?', 'Resumen rápido, equipo', 'A ver esos filtros']), 0, 2.4);
     let k = 1;
-    M.members.forEach(a => {
-      if (a === BOSS) return;
-      let text;
-      if (a.bot) { const e = G.eng.find(x => x.id === a.engine); text = e.pos ? `${e.pos.dir > 0 ? 'Largo' : 'Corto'} ${usd(engPnl(e), true)}` : e.pend ? 'Órdenes listas' : 'Esperando vela'; }
-      else { const ins = pick(INS); text = { tec: `${ins.sym} ${sgn(ins.tec)}`, mac: `Régimen ${sgn(S.riskOn)}`, rsk: `Expo ${Math.round(notional() / equity() * 100)}%`, qnt: `z ${ins.sym} ${ins.z.toFixed(1)}` }[a.dept]; }
-      sayAt(a, text, k++ * 0.55, 2.2);
-    });
+    M.members.forEach(a => { if (a !== BOSS) sayAt(a, reportOf(a), k++ * 0.55, 2.2); });
     M.until = S.simT + k * 0.55 + 2;
   } else if (M.phase === 'discuss' && S.simT >= M.until) {
-    decide();
+    review();
     sayAt(BOSS, pick(['Adelante', 'Perfecto, seguimos', 'Buen trabajo']), 0, 2.4);
     M.members.forEach(a => {
       a.route = [...a.path].reverse().concat([{ x: a.home.x, y: a.home.y }]); a.returning = true; a.state = 'walk';
-      a.task = a === BOSS ? 'Volviendo al despacho' : a.bot ? 'Volviendo a su puesto' : 'Volviendo a su mesa';
+      a.task = a === BOSS ? 'Volviendo al despacho' : 'Volviendo a su mesa';
     });
     M.phase = 'return';
   } else if (M.phase === 'return' && M.members.every(a => a.state === 'seat')) {
@@ -838,7 +771,7 @@ function videoWall(w, h) {
 }
 function meetingTV(w, h) {
   screenBezel(w, h);
-  ctx.fillStyle = '#4fb2d2'; ctx.font = '800 7px Archivo, sans-serif'; ctx.fillText('COMITÉ', 5, 10);
+  ctx.fillStyle = '#4fb2d2'; ctx.font = '800 7px Archivo, sans-serif'; ctx.fillText('REUNIÓN', 5, 10);
   const M = S.meeting;
   ctx.font = '700 7px "JetBrains Mono", monospace'; ctx.fillStyle = M ? '#e9c45c' : '#cfd6cf';
   ctx.fillText(M ? (M.phase === 'discuss' ? 'EN SESIÓN' : M.phase === 'gather' ? 'REUNIENDO…' : 'CERRADA') : `Próxima en ${Math.max(0, Math.ceil(S.nextMeeting - S.simT))} s`, 5, 22);
@@ -871,7 +804,9 @@ function drawWalls(t) {
     ctx.fillStyle = '#0b0f0e'; ctx.fillRect(0, 0, tw, 14);
     ctx.beginPath(); ctx.rect(0, 0, tw, 14); ctx.clip();
     ctx.font = '600 9px "JetBrains Mono", monospace';
-    const parts = [...INS, G].map(i => ({ s: `${i.sym} ${px(i, i.p)} ${pct(i.p / i.open - 1)}`, up: i.p >= i.open }));
+    const parts = [{ s: `XAUUSD ${fmtG(G.p)} ${pct(G.p / G.open - 1)}`, up: G.p >= G.open }, { s: `SPREAD ${Math.round(G.spread * 100)} PTS`, up: true },
+      { s: `VOLUMEN H4 ${G.volRatio != null ? G.volRatio.toFixed(2) + '×' : '—'}`, up: G.volRatio >= 1.5 },
+      ...G.eng.map(e => ({ s: `${engLabel(e.id)} ${e.pos ? (e.pos.dir > 0 ? 'LARGO ' : 'CORTO ') + usd(engPnl(e), true) : e.pend ? 'PENDIENTES' : 'EN ESPERA'}`, up: !e.pos || engPnl(e) >= 0 }))];
     const seg = parts.map(p => p.s).join('   ·   ') + '   ·   ';
     const segW = ctx.measureText(seg).width, off = reduceMotion ? 0 : (t * 26) % segW;
     for (let rep = 0; rep < 3; rep++) {
@@ -903,14 +838,14 @@ function drawFloor() {
   rugs.forEach(r => {
     const on = sel && sel.type === 'dept' && sel.id === r.dept, c = DEPTS[r.dept].color;
     poly([iso(r.x, r.y), iso(r.x + r.w, r.y), iso(r.x + r.w, r.y + r.h), iso(r.x, r.y + r.h)], hexA(c, on ? 0.22 : 0.12), hexA(c, on ? 0.9 : 0.35), on ? 2 : 1);
-    onFloor(r.x + 0.2, r.y + r.h - 0.12, () => { ctx.fillStyle = hexA(c, on ? 1 : 0.75); ctx.font = '800 10px Archivo, sans-serif'; ctx.fillText(DEPTS[r.dept].short.toUpperCase(), 0, 0); });
+    onFloor(r.x + 0.2, r.y + r.h - 0.12, () => { ctx.fillStyle = hexA(c, on ? 1 : 0.75); ctx.font = '800 10px Archivo, sans-serif'; ctx.fillText(`${FLOW.indexOf(r.dept) + 1} · ${DEPTS[r.dept].short.toUpperCase()}`, 0, 0); });
   });
   poly([iso(15.2, 10.9), iso(19.85, 10.9), iso(19.85, 13.8), iso(15.2, 13.8)], 'rgba(59,74,82,.28)', 'rgba(59,74,82,.5)');
   onFloor(15.4, 13.65, () => { ctx.fillStyle = 'rgba(40,52,58,.7)'; ctx.font = '800 10px Archivo, sans-serif'; ctx.fillText('LOUNGE', 0, 0); });
   const lab = (x, y, txt, c, d) => onFloor(x, y, () => { const on = d && sel && sel.type === 'dept' && sel.id === d; ctx.fillStyle = on ? DEPTS[d].color : c; ctx.font = '800 11px Archivo, sans-serif'; ctx.fillText(txt, 0, 0); });
   lab(0.3, 4.8, 'DESPACHO DE DIRECCIÓN', 'rgba(255,240,220,.42)');
   lab(6.4, 4.4, 'SALA DE ESTRATEGIAS', 'rgba(211,163,50,.75)', 'gld');
-  lab(14.3, 5.8, 'SALA DE REUNIONES', 'rgba(40,50,48,.42)', 'com');
+  lab(14.3, 5.8, 'SALA DE REUNIONES', 'rgba(40,50,48,.42)');
 }
 function drawLights() {
   const pool = (x, y, r, c) => {
@@ -989,8 +924,7 @@ function drawDesk(dk, t) {
   } else {
     box(dk.x, dk.y - 0.04, dk.w, 0.06, 9, '#5d6762', '#4e5853', '#434c48', H0);
     box(dk.x, dk.y, dk.w, dk.d, 2, '#eceee9', '#c9cdc6', '#b9beb6', H0 - 2);
-    const ins = getIns(dk.sym);
-    [0.27, 0.73].forEach((f, m) => monitor(dk.x + f * dk.w, dk.y + 0.18, 0.56, H0, m ? 'bars' : 'line', ins, t));
+    [0.27, 0.73].forEach((f, m) => monitor(dk.x + f * dk.w, dk.y + 0.18, 0.56, H0, m ? (dk.dept === 'vol' ? 'bars' : 'candles') : 'line', G, t));
   }
   box(dk.x + dk.w / 2 - 0.25, dk.y + 0.5, 0.5, 0.14, 1, '#4a514c', '#3a403c', '#323833', H0);
 }
@@ -1080,50 +1014,25 @@ function drawPerson(a, t) {
   ctx.fill();
   a._hit = [x - 9, top - 12, 18, y - top + 14];
 }
-function botColor(a) {
-  const e = G.eng.find(x => x.id === a.engine);
-  return e.pos ? (engPnl(e) >= 0 ? '#57d29b' : '#f1716a') : e.pend ? '#f2c94c' : '#8b968f';
-}
-function drawBot(a, t) {
-  const [x, y] = iso(a.x, a.y), hov = reduceMotion ? 0 : Math.sin(t * 2.2 + a.phase) * 2, st = botColor(a);
-  ring(a, x, y);
-  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x, y, 9 - hov * 0.6, 4.5 - hov * 0.3, 0, 0, Math.PI * 2); ctx.fill();
-  const by = y - 14 - hov, metal = ctx.createLinearGradient(x - 9, 0, x + 9, 0);
-  metal.addColorStop(0, '#f1f4f6'); metal.addColorStop(0.55, '#c3cbd1'); metal.addColorStop(1, '#8c969d');
-  // propulsor
-  ctx.fillStyle = hexA(st, 0.35); ctx.beginPath(); ctx.ellipse(x, by + 2, 5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#9aa4ab'; rr(x - 10.5, by - 15, 3, 9, 1.5); ctx.fill(); rr(x + 7.5, by - 15, 3, 9, 1.5); ctx.fill();
-  ctx.fillStyle = metal; rr(x - 8, by - 18, 16, 18, 6); ctx.fill();
-  ctx.fillStyle = '#d3a332'; ctx.fillRect(x - 8, by - 9, 16, 2.5);
-  ctx.fillStyle = st; ctx.beginPath(); ctx.arc(x, by - 13, 1.6, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = metal; rr(x - 9, by - 32, 18, 13, 5); ctx.fill();
-  ctx.fillStyle = '#0d1416'; rr(x - 7, by - 29, 14, 7, 3); ctx.fill();
-  const blink = !reduceMotion && Math.sin(t * 0.9 + a.phase * 3) > 0.985;
-  ctx.fillStyle = '#7fe3ff'; ctx.shadowColor = '#7fe3ff'; ctx.shadowBlur = 4;
-  if (!blink) { ctx.fillRect(x - 4.5, by - 27, 3, 2.6); ctx.fillRect(x + 1.5, by - 27, 3, 2.6); }
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = '#8c969d'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x, by - 32); ctx.lineTo(x, by - 38); ctx.stroke();
-  ctx.fillStyle = st; ctx.shadowColor = st; ctx.shadowBlur = 6; ctx.beginPath(); ctx.arc(x, by - 39.5, 2.3, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
-  a._hov = hov;
-  a._hit = [x - 11, by - 44, 22, y - by + 46];
-}
+function engColor(e) { return e.pos ? (engPnl(e) >= 0 ? '#57d29b' : '#f1716a') : e.pend ? '#f2c94c' : '#8b968f'; }
 function drawTag(a) {
-  if (a !== BOSS && !a.bot) return;
+  if (a !== BOSS && !a.engine) return;
   if (a.bubble && a.bubble.until >= S.simT && a.bubble.born <= S.simT) return;
-  const [x, y] = agentScreen(a), text = a === BOSS ? 'carlus' : a.engine === 'H4B' ? 'H4-B' : a.engine;
-  const ty = a === BOSS ? y - (a.state === 'walk' ? 53 : 51) : y - 68 - (a._hov || 0);
+  const [x, y] = agentScreen(a), text = a === BOSS ? 'carlus' : engLabel(a.engine), dot = a.engine ? engColor(G.eng.find(e => e.id === a.engine)) : null;
+  const ty = y - (a.state === 'walk' ? 53 : 51);
   ctx.save(); ctx.font = '700 8px "JetBrains Mono", monospace';
-  const w = ctx.measureText(text).width + 10;
-  ctx.fillStyle = 'rgba(14,18,19,.88)'; rr(x - w / 2, ty, w, 12, 6); ctx.fill();
+  const w = ctx.measureText(text).width + (dot ? 18 : 10), x0 = x - w / 2;
+  ctx.fillStyle = 'rgba(14,18,19,.88)'; rr(x0, ty, w, 12, 6); ctx.fill();
   ctx.strokeStyle = '#d3a332'; ctx.lineWidth = 1; ctx.stroke();
-  ctx.fillStyle = '#e9c45c'; ctx.fillText(text, x - w / 2 + 5, ty + 8.6); ctx.restore();
+  if (dot) { ctx.fillStyle = dot; ctx.shadowColor = dot; ctx.shadowBlur = 5; ctx.beginPath(); ctx.arc(x0 + 7, ty + 6, 2.6, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
+  ctx.fillStyle = '#e9c45c'; ctx.fillText(text, x0 + (dot ? 13 : 5), ty + 8.6); ctx.restore();
 }
 function drawBubble(a) {
   if (!a.bubble || a.bubble.until < S.simT || a.bubble.born > S.simT) return;
   const [x, y] = agentScreen(a), age = S.simT - a.bubble.born, left = a.bubble.until - S.simT;
   const alpha = Math.min(1, age * 4, left * 2);
   ctx.save(); ctx.globalAlpha = alpha; ctx.font = '600 10px "JetBrains Mono", monospace';
-  const off = a.bot ? 88 + (a._hov || 0) : a === BOSS ? 76 : a.state === 'walk' ? 70 : 62;
+  const off = a === BOSS ? 76 : a.state === 'walk' ? 70 : 62;
   const tw = ctx.measureText(a.bubble.text).width + 12, bx = Math.max(4, Math.min(W - tw - 4, x - tw / 2)), by = y - off;
   ctx.fillStyle = '#ffffff'; ctx.strokeStyle = DEPTS[a.dept] ? DEPTS[a.dept].color : '#d3a332'; ctx.lineWidth = 1.2;
   rr(bx, by, tw, 18, 5); ctx.fill(); ctx.stroke();
@@ -1155,7 +1064,7 @@ function render(t) {
   GLASS.forEach(g => items.push({ k: g.k, f: () => drawGlass(g) }));
   items.push({ k: TABLE.key, f: drawTable });
   const people = [...agents, BOSS];
-  people.forEach(a => items.push({ k: keyOf(a), f: () => a.bot ? drawBot(a, t) : drawPerson(a, t) }));
+  people.forEach(a => items.push({ k: keyOf(a), f: () => drawPerson(a, t) }));
   items.sort((a, b) => a.k - b.k).forEach(i => i.f());
   const vg = ctx.createRadialGradient(W / 2, H * 0.55, 280, W / 2, H * 0.55, 760);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)');
@@ -1180,7 +1089,7 @@ cv.addEventListener('pointerleave', () => { hover = null; });
 cv.addEventListener('click', e => { const a = hitAgent(e); select(a ? (a === BOSS ? { type: 'boss' } : { type: 'agent', id: a.id }) : null); });
 
 // ---------- UI
-const fmtDept = d => (DEPTS[d] || SYS);
+const fmtDept = d => DEPTS[d] || (d === 'dir' ? DIR : SYS);
 function select(s) { sel = s; renderChip(); syncSelections(); }
 function renderChip() {
   const chip = $('#chip');
@@ -1189,44 +1098,51 @@ function renderChip() {
   if (sel.type === 'boss') {
     title = 'carlus · Despacho de dirección'; body = `${statusOf(BOSS)} · equity ${usd(equity())}`;
   } else if (sel.type === 'agent') {
-    const a = agents[sel.id], ins = getIns(a.sym);
+    const a = agents[sel.id];
     title = `${a.name} · ${DEPTS[a.dept].name}`;
-    body = `${a.role} · ${statusOf(a)}${a.dept === 'tec' || a.dept === 'qnt' || a.dept === 'gld' ? ` · ${ins.sym} ${px(ins, ins.p)}` : ''}`;
+    body = `${a.role} · ${statusOf(a)} · XAUUSD ${fmtG(G.p)}`;
   } else {
-    const d = DEPTS[sel.id]; title = d.name; body = `${agentsOf(sel.id).length} agentes · ${deptStat(sel.id)}`;
+    const d = DEPTS[sel.id]; title = d.name; body = `${agentsOf(sel.id).length} personas · ${deptStat(sel.id)}`;
   }
   chip.innerHTML = `<div><b>${esc(title)}</b><span class="muted">${esc(body)}</span></div><button type="button" aria-label="Cerrar">×</button>`;
   chip.querySelector('button').onclick = () => select(null);
   chip.hidden = false;
 }
+const lastH4 = () => G.h4[G.h4.length - 1];
 function statusOf(a) {
   if (a === BOSS) return a.state === 'walk' ? a.task : a.state === 'meet' ? 'Presidiendo la reunión' : 'En su despacho';
   if (a.state === 'walk') return a.task;
   if (a.state === 'meet') return 'En la sala de reuniones';
-  if (a.dept === 'com') return S.meeting ? 'Presidiendo la revisión' : 'Diario de decisiones';
-  if (a.dept === 'mac') return a.role === 'Calendario' ? `Vigilando ${S.nextEvent.name}` : 'Leyendo el contexto';
-  if (a.dept === 'rsk') return 'Monitorizando límites';
-  if (a.dept === 'gld') { const e = G.eng.find(x => x.id === a.engine); return e.pos ? `${e.pos.dir > 0 ? 'Largo' : 'Corto'} ${e.pos.lots.toFixed(2)} lt` : e.pend ? 'Órdenes pendientes' : e.note || 'Esperando vela'; }
-  return `Analizando ${a.sym}`;
+  const P = lastH4(), open = G.eng.filter(e => e.pos).length, pend = G.eng.filter(e => e.pend).length;
+  switch (a.dept) {
+    case 'gld': { const e = G.eng.find(x => x.id === a.engine); return e.pos ? `${e.pos.dir > 0 ? 'Largo' : 'Corto'} ${e.pos.lots.toFixed(2)} lt` : e.pend ? 'Órdenes pendientes' : e.note || 'Esperando vela'; }
+    case 'niv': return pend ? `${pend} motor${pend > 1 ? 'es' : ''} con órdenes` : 'Esperando cierre de vela';
+    case 'vel': return P ? `Última vela ${P.c < P.o ? 'bajista' : 'alcista'}` : 'Leyendo velas';
+    case 'vol': return G.volRatio != null ? `Volumen ${G.volRatio.toFixed(2)}×` : 'Midiendo volumen';
+    case 'rsk': return S.killed ? 'Kill switch activo' : `DD día ${pct(dayDD(), 2)}`;
+    case 'ges': return open ? `Gestionando ${open} posición${open > 1 ? 'es' : ''}` : 'Sin posiciones';
+  }
+  return '';
 }
 function deptStat(d) {
-  const eq = equity();
-  if (d === 'tec') return `${INS.filter(i => Math.abs(i.tec) > 0.35).length}/4 señales activas`;
-  if (d === 'mac') return `Régimen ${sgn(S.riskOn)}`;
-  if (d === 'rsk') return `Expo ${Math.round(notional() / eq * 100)}% · límite 150%`;
-  if (d === 'qnt') { const m = INS.reduce((b, i) => Math.abs(i.z) > Math.abs(b.z) ? i : b); return `z máx ${m.sym} ${m.z.toFixed(2)}`; }
-  if (d === 'gld') return LIVE.on ? `MT5 equity ${usd(LIVE.d.account.equity)}` : `Cuenta ${usd(GOLD_ALLOC + G.realized + goldUnreal())}`;
-  return `${S.decisions} revisiones · ${S.orders} órdenes`;
+  const P = lastH4();
+  if (d === 'gld') return LIVE.on ? `MT5 equity ${usd(equity())}` : `Cuenta ${usd(equity())}`;
+  if (d === 'niv') return `${G.eng.filter(e => e.pend).length}/3 con órdenes`;
+  if (d === 'vel') return P ? (P.c < P.o ? 'Vela bajista' : 'Vela alcista') : '—';
+  if (d === 'vol') return G.volRatio != null ? `${G.volRatio.toFixed(2)}× · umbral 1.5×` : 'Sin datos';
+  if (d === 'rsk') return S.killed ? 'Kill switch' : `DD ${pct(dayDD(), 2)} · límite −2%`;
+  if (d === 'ges') return `${G.eng.filter(e => e.pos).length}/3 en mercado`;
+  return '';
 }
 
-// sidebar: build once, update text
+// sidebar: se construye una vez y luego solo se actualizan los textos
 const deptList = $('#deptList'), agentList = $('#agentList'), pulseList = $('#pulseList');
 function buildSidebar() {
   deptList.innerHTML = Object.entries(DEPTS).map(([k, d]) => `
     <button class="dept" type="button" data-dept="${k}">
-      <div class="dept-t"><span class="dot" style="background:${d.color}"></span>${d.name}</div>
+      <div class="dept-t"><span class="dot" style="background:${d.color}"></span>${FLOW.includes(k) ? `${FLOW.indexOf(k) + 1}. ` : ''}${d.name}</div>
       <p>${d.desc}</p>
-      <div class="dept-f"><span>${agentsOf(k).length} agentes</span><span class="stat" data-stat="${k}"></span><span>DEMO</span></div>
+      <div class="dept-f"><span>${agentsOf(k).length} personas</span><span class="stat" data-stat="${k}"></span><span>${k === 'gld' ? 'XAUUSD' : 'FILTRO'}</span></div>
     </button>`).join('');
   agentList.innerHTML = agents.map(a => `
     <button class="agent" type="button" data-agent="${a.id}">
@@ -1234,7 +1150,7 @@ function buildSidebar() {
       <span><b>${a.name}</b><span class="r">${DEPTS[a.dept].short} · ${a.role}</span></span>
       <span class="st" data-st="${a.id}"></span>
     </button>`).join('');
-  pulseList.innerHTML = [...INS, G].map(i => `<div class="pulse-row"><b>${i.sym}</b><span class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i.name}</span><span class="mono" data-pulse="${i.sym}"></span></div>`).join('');
+  $('#agentCount').textContent = agents.length + 1;
   $('#legend').innerHTML = Object.values(DEPTS).map(d => `<span><span class="dot" style="background:${d.color}"></span>${d.name}</span>`).join('');
 }
 deptList.addEventListener('click', e => { const b = e.target.closest('[data-dept]'); if (b) select(sel && sel.type === 'dept' && sel.id === b.dataset.dept ? null : { type: 'dept', id: b.dataset.dept }); });
@@ -1266,23 +1182,11 @@ function setView(v, push) {
 
 let feedFilter = 'all', feedShown = 0;
 function buildFilters() {
-  const opts = [['all', 'Todos', null], ...Object.entries(DEPTS).map(([k, d]) => [k, d.short, d.color]), ['sys', 'Sistema', SYS.color]];
+  const opts = [['all', 'Todos', null], ...Object.entries(DEPTS).map(([k, d]) => [k, d.short, d.color]), ['dir', DIR.short, DIR.color], ['sys', SYS.short, SYS.color]];
   $('#filters').innerHTML = opts.map(([k, n, c]) => `<button type="button" data-f="${k}" aria-pressed="${k === feedFilter}">${c ? `<span class="dot" style="background:${c}"></span>` : ''}${n}</button>`).join('');
 }
 $('#filters').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (!b) return; feedFilter = b.dataset.f; buildFilters(); feedShown = -1; updateUI(true); });
 
-function spark(ins) {
-  const h = ins.hist.slice(-240), lo = Math.min(...h), hi = Math.max(...h), w = 300, hh = 84;
-  const pts = h.map((v, i) => `${(i / (h.length - 1) * w).toFixed(1)},${(hh - 6 - (v - lo) / ((hi - lo) || 1) * (hh - 14)).toFixed(1)}`);
-  const c = ins.p >= ins.open ? 'var(--up)' : 'var(--down)', last = pts[pts.length - 1].split(',');
-  const pos = S.pos[ins.sym], ey = pos ? (hh - 6 - (pos.avg - lo) / ((hi - lo) || 1) * (hh - 14)) : null;
-  return `<svg class="spark" viewBox="0 0 ${w} ${hh}" preserveAspectRatio="none" aria-hidden="true">
-    ${[0.25, 0.5, 0.75].map(f => `<line x1="0" x2="${w}" y1="${hh * f}" y2="${hh * f}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join('')}
-    <polygon points="0,${hh} ${pts.join(' ')} ${w},${hh}" fill="${c}" opacity=".10"/>
-    ${ey !== null && ey > 0 && ey < hh ? `<line x1="0" x2="${w}" y1="${ey}" y2="${ey}" stroke="var(--muted)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>` : ''}
-    <polyline points="${pts.join(' ')}" fill="none" stroke="${c}" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
-    <circle cx="${last[0]}" cy="${last[1]}" r="3" fill="${c}"/></svg>`;
-}
 // ---------- MT5 en vivo: solo existe cuando la web se abre desde el puente (bridge/mt5_bridge.py)
 async function pollLive() {
   let d = null;
@@ -1308,7 +1212,8 @@ function applyLive(d) {
   }
   if (d.d1.length) { G.d1 = d.d1.slice(0, -1).map(mk); G.open = d.d1[d.d1.length - 1].o; }
   if (first) {
-    S.trades = S.trades.filter(t => t.ins !== G); S.log = S.log.filter(l => l.dept !== 'gld');
+    S.trades = []; S.log = S.log.filter(l => l.dept === 'sys');
+    S.startEq = d.account.balance; S.peak = d.account.equity;
     G.eng.forEach(e => { e.savedLow = null; });
     log('sys', `Conectado a MetaTrader 5: cuenta ${d.account.login} (${d.account.mode}) en ${d.account.server}. Breakout Gold Pro en vivo, solo lectura.`);
   }
@@ -1333,6 +1238,9 @@ function applyLive(d) {
     S.trades.unshift({ t: S.simT, time: t.time, sym: `${d.symbol} · ${t.engine || t.magic}`, side: t.side, qty: t.volume.toFixed(2) + ' lt', entry: t.entry == null ? t.exit : t.entry, exit: t.exit, pnl: t.profit, reason: `${e ? e.name : 'Magic ' + t.magic} · ${t.reason} (MT5)`, ins: G });
     if (!first) { log('gld', `${a ? a.name : 'Magic ' + t.magic} (MT5): cierre por ${t.reason.toLowerCase()} @ ${fmtG(t.exit)}, resultado ${usd(t.profit, true)}`); if (a) say(a, `${t.reason} ${usd(t.profit, true)}`, 3.5); }
   });
+  // cada vela H4 nueva de MT5 pasa por la cadena de filtros (solo para explicarla: las órdenes reales son las del EA)
+  const sig = G.h4.length ? JSON.stringify(G.h4[G.h4.length - 1]) : '', d1sig = G.d1.length ? JSON.stringify(G.d1[G.d1.length - 1]) : '';
+  if (sig && sig !== LIVE.sig) { filterCandle(first || d1sig !== LIVE.d1sig, true); LIVE.sig = sig; LIVE.d1sig = d1sig; }
   if (S.trades.length > 200) S.trades.length = 200;
   LIVE.seenPos = new Set(d.positions.map(p => p.ticket)); LIVE.seenOrd = new Set(d.orders.map(o => o.ticket));
   d.trades.forEach(t => LIVE.seenTr.add(t.ticket));
@@ -1377,30 +1285,50 @@ function goldPanel() {
       <circle cx="${CW - step / 2}" cy="${py}" r="3" fill="var(--fg)"/></svg></div>
     <div class="scroll"><table class="eng"><thead><tr><th>Motor</th><th>Estado</th><th class="n">Lote</th><th class="n">TP / SL</th><th class="n">Ops</th><th class="n">Acierto</th><th class="n">P&amp;L</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
-function barRow(label, v) {
-  const c = v >= 0 ? 'var(--up)' : 'var(--down)', w = Math.abs(v) * 50;
-  return `<span class="muted">${label}</span><div class="bar"><i></i><span style="background:${c};${v >= 0 ? 'left:50%' : `left:${50 - w}%`};width:${w}%"></span></div><span class="mono" style="text-align:right">${sgn(v)}</span>`;
+// Tabla de la cadena de filtros: cómo ha pasado la última vela por cada filtro, motor a motor
+function filtersPanel() {
+  const ok = s => `<span class="up">✓</span> ${s}`, no = s => `<span class="down">✗</span> ${s}`, na = '<span class="muted">No aplica</span>', none = '<span class="muted">—</span>';
+  const rows = [
+    ['niv', e => !e.chk ? none : e.chk.buy != null || e.chk.sell != null ? ok([e.chk.buy != null ? `BS ${fmtG(e.chk.buy)}` : '', e.chk.sell != null ? `SS ${fmtG(e.chk.sell)}` : ''].filter(Boolean).join(' · ')) : `<span class="muted">${esc(e.chk.block || 'Sin niveles')}</span>`],
+    ['vel', e => !e.chk ? none : (e.chk.dir < 0 ? 'Bajista: compra y venta' : 'Alcista: solo compra') + (e.persist && e.chk.low != null ? `<br><span class="muted">mínimo guardado ${fmtG(e.chk.low)}</span>` : '')],
+    ['vol', e => !e.volF ? na : !e.chk || e.chk.vol == null ? none : e.chk.vol >= 1.5 ? ok(`${e.chk.vol.toFixed(2)}× la media`) : no(`${e.chk.vol.toFixed(2)}× (mín. 1.5×)`)],
+    ['rsk', e => S.killed ? no('Kill switch') : dayDD() < -0.02 ? no('Límite −2%') : ok(LIVE.on ? 'Dentro del límite' : `${goldLots(e).toFixed(2)} lt · 0.01 por $${e.lotPer}`)],
+    ['ges', e => e.pos ? `SL ${fmtG(e.pos.sl)} · TP ${fmtG(e.pos.tp)}${e.pos.trailing ? ' · <span class="up">trailing</span>' : ''}` : `<span class="muted">TP $${e.tp} · SL $${e.sl}${e.trail ? ' · trailing +40/30' : ''}</span>`],
+  ];
+  const res = e => e.pos ? `<span class="side-pill ${e.pos.dir > 0 ? 'long' : 'short'}">${e.pos.dir > 0 ? 'LARGO' : 'CORTO'} ${usd(engPnl(e), true)}</span>` : e.pend ? '<span class="side-pill flat">PENDIENTES</span>' : `<span class="muted">${esc(e.note || 'Esperando vela')}</span>`;
+  return `<h3>Cadena de filtros <span class="muted" style="font-size:11px">Última vela evaluada${LIVE.on ? ' · según las reglas, las órdenes reales son las del EA' : ''}</span></h3>
+    <div class="scroll"><table class="eng"><thead><tr><th>Filtro</th>${G.eng.map(e => `<th>${e.name}</th>`).join('')}</tr></thead><tbody>
+    ${rows.map(([d, f]) => `<tr><td class="txt"><span class="dot" style="display:inline-block;margin-right:6px;background:${DEPTS[d].color}"></span>${FLOW.indexOf(d) + 1}. ${DEPTS[d].short}</td>${G.eng.map(e => `<td class="txt">${f(e)}</td>`).join('')}</tr>`).join('')}
+    <tr><td class="txt"><b>Resultado</b></td>${G.eng.map(e => `<td class="txt">${res(e)}</td>`).join('')}</tr>
+    </tbody></table></div>
+    <p class="note" style="margin-top:10px">Cada vela cerrada pasa por los filtros en este orden. D1 se evalúa una vez al día; H4 y H4-B en cada vela H4. Si un filtro bloquea, ese motor no coloca órdenes en esa vela.</p>`;
 }
 
 function updateUI(force) {
-  const eq = equity(), pnl = eq - START, u = unreal(), not = notional(), open = INS.filter(i => S.pos[i.sym]);
+  const eq = equity(), u = unreal(), pnl = realized() + u, open = G.eng.filter(e => e.pos);
   $('#kEq').textContent = usd(eq);
   $('#kEqSub').textContent = `Balance ${usd(balance())}`;
   const kp = $('#kPnl'); kp.textContent = `${usd(pnl, true)} ${pnl >= 0 ? '↗' : '↘'}`; kp.className = 'val ' + (pnl >= 0 ? 'up' : 'down');
-  $('#kExp').textContent = (not / eq * 100).toFixed(2) + '%';
-  const goldOpenN = LIVE.on ? 0 : G.eng.filter(e => e.pos).length, syms = open.map(i => i.sym).concat(goldOpenN ? ['XAUUSD'] : []);
-  $('#kExpSub').textContent = syms.length ? `${usd(not)} · ${syms.join(' ')}` : 'Sin posiciones';
-  $('#kDec').textContent = S.decisions;
+  $('#kPnlSub').textContent = LIVE.on ? 'Últimos 7 días + flotante' : 'Realizado + flotante';
+  $('#kExp').textContent = `${open.length} / 3`;
+  $('#kExpSub').textContent = open.length ? open.map(e => `${engLabel(e.id)} ${e.pos.dir > 0 ? 'largo' : 'corto'} ${e.pos.lots.toFixed(2)}`).join(' · ') : `${G.eng.filter(e => e.pend).length} con órdenes pendientes`;
+  $('#kDec').textContent = S.reviews;
   $('#kDecSub').textContent = 'Última: ' + (S.lastDecision || '—');
+  const A = LIVE.on ? LIVE.d.account : null;
+  $('#acctName').textContent = A ? 'Cuenta MT5' : 'Cuenta virtual';
+  $('#acctId').textContent = A ? `${A.login} · ${A.mode}` : 'DEMO-001';
+  $('#aCapL').textContent = A ? 'Servidor' : 'Capital asignado';
+  $('#aCap').textContent = A ? A.server : usd(GOLD_ALLOC);
   $('#aBal').textContent = usd(balance());
   const au = $('#aUnr'); au.textContent = usd(u, true); au.className = u >= 0 ? 'up' : 'down';
-  $('#aFee').textContent = usd(-S.fees);
+  const ops = G.eng.reduce((s, e) => s + e.wins + e.losses, 0), wins = G.eng.reduce((s, e) => s + e.wins, 0);
+  $('#aOps').textContent = ops ? `${ops} · ${Math.round(wins / ops * 100)}% acierto` : '0';
   $('#aDD').textContent = pct((eq - S.peak) / S.peak, 2, false);
   $('#clock').textContent = clock(S.simT) + ' ET';
-  $('#nextMeet').textContent = S.meeting ? 'Comité reunido' : `Próximo comité en ${Math.max(0, Math.ceil((S.nextMeeting - S.simT)))} s`;
+  $('#nextMeet').textContent = S.meeting ? 'Reunión en curso' : `Próxima reunión en ${Math.max(0, Math.ceil(S.nextMeeting - S.simT))} s`;
   const pill = $('#statePill');
   pill.className = 'pill ' + (S.killed ? 'killed' : S.paused ? 'paused' : 'live');
-  pill.textContent = S.killed ? 'KILL SWITCH' : S.paused ? 'EN PAUSA' : 'EN VIVO · DEMO';
+  pill.textContent = S.killed ? 'KILL SWITCH' : S.paused ? 'EN PAUSA' : LIVE.on ? 'EN VIVO · MT5' : 'EN VIVO · DEMO';
   $('#killBanner').hidden = !S.killed;
   const mp = $('#mt5Pill'); mp.hidden = !LIVE.bridge;
   if (LIVE.bridge) { mp.className = 'pill ' + (LIVE.err ? 'killed' : 'live'); mp.textContent = LIVE.err ? 'MT5 · SIN CONEXIÓN' : `MT5 · ${LIVE.d.account.mode} ${LIVE.d.account.login}`; mp.title = LIVE.err || LIVE.d.account.server; }
@@ -1408,45 +1336,39 @@ function updateUI(force) {
   // sidebar
   deptList.querySelectorAll('[data-stat]').forEach(el => { el.textContent = deptStat(el.dataset.stat); });
   agentList.querySelectorAll('[data-st]').forEach(el => { el.textContent = statusOf(agents[+el.dataset.st]); });
-  pulseList.querySelectorAll('[data-pulse]').forEach(el => { const i = getIns(el.dataset.pulse), ch = i.p / i.open - 1; el.innerHTML = `${px(i, i.p)} <span class="${ch >= 0 ? 'up' : 'down'}">${pct(ch)}</span>`; });
-  $('#riskVal').textContent = sgn(S.riskOn);
-  const rb = $('#riskBar'), rw = Math.abs(S.riskOn) * 50;
-  rb.style.cssText = `left:${S.riskOn >= 0 ? 50 : 50 - rw}%;width:${rw}%;background:${S.riskOn >= 0 ? 'var(--up)' : 'var(--down)'}`;
-  $('#nextEv').innerHTML = `<span class="muted">Próximo dato:</span> ${esc(S.nextEvent.name)} <span class="mono muted">en ${Math.max(0, Math.ceil(S.nextEvent.at - S.simT))} s</span>`;
+  const ch = G.p / G.open - 1, c = G.cur;
+  const pr = (k, v) => `<div class="pulse-row"><b>${k}</b><span></span><span class="mono">${v}</span></div>`;
+  pulseList.innerHTML = pr(LIVE.on ? LIVE.d.symbol : 'XAUUSD', `${fmtG(G.p)} <span class="${ch >= 0 ? 'up' : 'down'}">${pct(ch)}</span>`)
+    + pr('Spread', `${Math.round(G.spread * 100)} pts`)
+    + pr('Vela H4', `${fmtG(c.l)} – ${fmtG(c.h)}`)
+    + pr('En mercado', `${open.length} de 3 motores`);
+  const r = G.volRatio, vb = $('#volBar');
+  $('#volVal').textContent = r != null ? `${r.toFixed(2)}×` : '—';
+  vb.style.cssText = `left:0;width:${r != null ? Math.min(100, r / 3 * 100) : 0}%;background:${r >= 1.5 ? 'var(--up)' : 'var(--muted)'}`;
+  $('#nextEv').innerHTML = LIVE.on ? '<span class="muted">Vela H4 en curso en MT5</span>' : `<span class="muted">Próxima vela H4 en</span> <span class="mono">${Math.ceil((H4_TICKS - G.n % H4_TICKS) * TICK)} s</span>`;
   if (sel) renderChip();
 
   if (view === 'analisis') {
     $('#goldCard').innerHTML = goldPanel();
-    $('#insCards').innerHTML = INS.map(i => {
-      const ch = i.p / i.open - 1, p = S.pos[i.sym], comp = 0.45 * i.tec + 0.2 * i.qnt + 0.35 * i.mac;
-      const side = p ? (p.qty > 0 ? `<span class="side-pill long">LARGO ${p.qty}</span>` : `<span class="side-pill short">CORTO ${-p.qty}</span>`) : '<span class="side-pill flat">SIN POSICIÓN</span>';
-      return `<article class="card ins">
-        <div class="ins-h"><div><b>${i.sym}</b><small>${i.name}</small></div><div class="ins-px"><div>${px(i, i.p)}</div><span class="${ch >= 0 ? 'up' : 'down'}" style="font-size:12px">${pct(ch)}</span></div></div>
-        ${spark(i)}
-        <div class="bars">${barRow('Técnico', i.tec)}${barRow('Macro', i.mac)}${barRow('Quant', i.qnt)}${barRow('<b style="color:var(--fg)">Compuesto</b>', comp)}</div>
-        <div class="ins-f">${side}<span class="muted mono">${p ? `entrada ${px(i, p.avg)} · ${usd(unrealOf(i), true)}` : `umbral de entrada ±0.35`}</span></div>
-      </article>`;
-    }).join('');
+    $('#filterCard').innerHTML = filtersPanel();
   }
   if (view === 'operaciones') {
-    const gp = G.eng.filter(e => e.pos);
-    $('#posCount').textContent = `${open.length + gp.length} abiertas`;
-    const goldRows = gp.map(e => { const p = e.pos, uu = (G.p - p.entry) * p.dir * p.lots * OZ; return `<tr><td>XAUUSD · ${e.id}</td><td><span class="side-pill ${p.dir > 0 ? 'long' : 'short'}">${p.dir > 0 ? 'LARGO' : 'CORTO'}</span></td><td class="n">${p.lots.toFixed(2)} lt</td><td class="n">${fmtG(p.entry)}</td><td class="n">${fmtG(G.p)}</td><td class="n">${usd(p.lots * OZ * G.p)}</td><td class="n ${uu >= 0 ? 'up' : 'down'}">${usd(uu, true)}</td></tr>`; }).join('');
-    $('#posTbl').innerHTML = open.length || gp.length ? `<table><thead><tr><th>Símbolo</th><th>Lado</th><th class="n">Tamaño</th><th class="n">Precio medio</th><th class="n">Último</th><th class="n">Nocional</th><th class="n">P&amp;L no realizado</th></tr></thead><tbody>${open.map(i => { const p = S.pos[i.sym], uu = unrealOf(i); return `<tr><td>${i.sym}</td><td><span class="side-pill ${p.qty > 0 ? 'long' : 'short'}">${p.qty > 0 ? 'LARGO' : 'CORTO'}</span></td><td class="n">${Math.abs(p.qty)}</td><td class="n">${px(i, p.avg)}</td><td class="n">${px(i, i.p)}</td><td class="n">${usd(Math.abs(p.qty) * i.p * i.mult)}</td><td class="n ${uu >= 0 ? 'up' : 'down'}">${usd(uu, true)}</td></tr>`; }).join('')}${goldRows}</tbody></table>` : '<div class="empty">No hay posiciones abiertas. El comité abrirá la siguiente cuando la señal compuesta supere ±0.35, y el Breakout Gold Pro cuando el oro rompa un nivel.</div>';
-    $('#trCount').textContent = `${S.trades.length} en la sesión`;
-    $('#trTbl').innerHTML = S.trades.length ? `<table><thead><tr><th>Cierre</th><th>Símbolo</th><th>Lado</th><th class="n">Tamaño</th><th class="n">Entrada</th><th class="n">Salida</th><th class="n">P&amp;L neto</th><th>Motivo</th></tr></thead><tbody>${S.trades.slice(0, 60).map(tr => `<tr><td>${tr.time ? tr.time.slice(5, 16) : clock(tr.t)}</td><td>${tr.sym}</td><td>${tr.side}</td><td class="n">${tr.qty}</td><td class="n">${px(tr.ins, tr.entry)}</td><td class="n">${px(tr.ins, tr.exit)}</td><td class="n ${tr.pnl >= 0 ? 'up' : 'down'}">${usd(tr.pnl, true)}</td><td class="txt">${tr.reason}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Todavía no hay operaciones cerradas en esta sesión.</div>';
+    $('#posCount').textContent = `${open.length} abiertas`;
+    $('#posTbl').innerHTML = open.length ? `<table><thead><tr><th>Motor</th><th>Lado</th><th class="n">Lotes</th><th class="n">Entrada</th><th class="n">Último</th><th class="n">SL</th><th class="n">TP</th><th class="n">Flotante</th></tr></thead><tbody>${open.map(e => { const p = e.pos, uu = engPnl(e); return `<tr><td>XAUUSD · ${engLabel(e.id)}</td><td><span class="side-pill ${p.dir > 0 ? 'long' : 'short'}">${p.dir > 0 ? 'LARGO' : 'CORTO'}</span></td><td class="n">${p.lots.toFixed(2)}</td><td class="n">${fmtG(p.entry)}</td><td class="n">${fmtG(G.p)}</td><td class="n">${fmtG(p.sl)}${p.trailing ? ' ↑' : ''}</td><td class="n">${fmtG(p.tp)}</td><td class="n ${uu >= 0 ? 'up' : 'down'}">${usd(uu, true)}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty">No hay posiciones abiertas. Cada motor entra cuando el oro rompe un nivel que ha pasado todos los filtros.</div>';
+    $('#trCount').textContent = `${S.trades.length} ${LIVE.on ? 'en los últimos 7 días' : 'en la sesión'}`;
+    $('#trTbl').innerHTML = S.trades.length ? `<table><thead><tr><th>Cierre</th><th>Motor</th><th>Lado</th><th class="n">Tamaño</th><th class="n">Entrada</th><th class="n">Salida</th><th class="n">P&amp;L</th><th>Motivo</th></tr></thead><tbody>${S.trades.slice(0, 60).map(tr => `<tr><td>${tr.time ? tr.time.slice(5, 16) : clock(tr.t)}</td><td>${tr.sym}</td><td>${tr.side}</td><td class="n">${tr.qty}</td><td class="n">${fmtG(tr.entry)}</td><td class="n">${fmtG(tr.exit)}</td><td class="n ${tr.pnl >= 0 ? 'up' : 'down'}">${usd(tr.pnl, true)}</td><td class="txt">${tr.reason}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Todavía no hay operaciones cerradas.</div>';
   }
   if (view === 'actividad' && (force || feedShown !== S.logSeq)) {
     feedShown = S.logSeq;
     const items = S.log.filter(l => feedFilter === 'all' || l.dept === feedFilter).slice().reverse();
-    $('#feed').innerHTML = items.length ? items.map(l => { const d = fmtDept(l.dept); return `<div class="ev"><time>${clock(l.t)}</time><span class="dot" style="background:${d.color}"></span><span><em>${d.short || d.name}</em>${esc(l.text)}</span></div>`; }).join('') : '<div class="empty">Sin eventos para este filtro.</div>';
+    $('#feed').innerHTML = items.length ? items.map(l => { const d = fmtDept(l.dept); return `<div class="ev"><time>${clock(l.t)}</time><span class="dot" style="background:${d.color}"></span><span><em>${d.short}</em>${esc(l.text)}</span></div>`; }).join('') : '<div class="empty">Sin eventos para este filtro.</div>';
   }
 }
 
 // controls
 $('#bPause').addEventListener('click', () => { S.paused = !S.paused; $('#bPause').textContent = S.paused ? 'Reanudar' : 'Pausar'; $('#bPause').setAttribute('aria-pressed', String(S.paused)); log('sys', S.paused ? 'Simulación en pausa' : 'Simulación reanudada'); updateUI(true); });
 $('#bCom').addEventListener('click', () => { if (S.meeting) return; convene(true); updateUI(true); });
-$('#bReset').addEventListener('click', () => { newSession(); LIVE.seeded = false; LIVE.seenTr.clear(); sel = null; renderChip(); buildSidebar(); syncSelections(); updateUI(true); });
+$('#bReset').addEventListener('click', () => { newSession(); LIVE.seeded = false; LIVE.sig = LIVE.d1sig = ''; LIVE.seenTr.clear(); sel = null; renderChip(); buildSidebar(); syncSelections(); updateUI(true); });
 document.querySelectorAll('.speed button').forEach(b => b.addEventListener('click', () => { S.speed = +b.dataset.speed; document.querySelectorAll('.speed button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }));
 let killArmed = 0;
 $('#bKill').addEventListener('click', () => {
@@ -1454,14 +1376,13 @@ $('#bKill').addEventListener('click', () => {
   if (S.killed) return;
   if (!killArmed) { killArmed = setTimeout(() => { killArmed = 0; b.classList.remove('armed'); b.textContent = 'Kill switch'; }, 3500); b.classList.add('armed'); b.textContent = 'Confirmar: cerrar todo'; return; }
   clearTimeout(killArmed); killArmed = 0; b.classList.remove('armed'); b.textContent = 'Kill switch';
-  let n = Object.keys(S.pos).length;
-  INS.forEach(i => { if (S.pos[i.sym]) execute(i, 0, 'Kill switch'); });
+  let n = 0;
   if (LIVE.on) log('sys', 'Aviso: el kill switch de la floor no toca MetaTrader 5. El puente es de solo lectura; para parar el EA hazlo en el terminal.');
   else G.eng.forEach(e => { if (e.pos) { n++; goldClose(e, G.p, 'Kill switch'); } e.pend = null; e.note = 'Kill switch activo'; });
-  S.killed = true; log('sys', `Kill switch activado: ${n} posiciones cerradas a mercado, trading detenido`);
+  S.killed = true; log('sys', `Kill switch activado: ${n} posiciones cerradas a mercado y pendientes borradas, trading detenido`);
   updateUI(true);
 });
-$('#bRearm').addEventListener('click', () => { S.killed = false; log('sys', 'Trading rearmado: el comité vuelve a poder ejecutar órdenes'); updateUI(true); });
+$('#bRearm').addEventListener('click', () => { S.killed = false; log('sys', 'Trading rearmado: los traders vuelven a colocar órdenes en la próxima vela'); updateUI(true); });
 
 // boot
 newSession(); buildSidebar(); buildFilters();
