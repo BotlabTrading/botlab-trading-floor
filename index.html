@@ -619,7 +619,7 @@ function convene(manual) {
   if (S.meeting) return;
   const reps = FLOW.map(d => pick(agentsOf(d).filter(a => a.state === 'seat')) || member(d, 0));
   const repSeats = [SEATS_S[3], SEATS_S[4], SEATS_N[1], SEATS_N[2], SEATS_N[3]];
-  const plan = [[BOSS, HEAD_L], ...agentsOf('gld').map((b, k) => [b, SEATS_S[k]]), ...reps.map((a, k) => [a, repSeats[k]])];
+  const plan = [[BOSS, HEAD_L], ...agentsOf('gld').map((b, k) => [b, SEATS_S[k]]).filter(([b]) => b.state !== 'panic'), ...reps.map((a, k) => [a, repSeats[k]])];
   plan.forEach(([a, seat]) => {
     a.path = routeTo(a, seat); a.route = [...a.path, seat]; a.seat = seat; a.returning = false; a.state = 'walk';
     a.task = a === BOSS ? 'Hacia la sala de reuniones' : 'Hacia la reunión';
@@ -660,28 +660,64 @@ function updateMeeting() {
       a.task = a === BOSS ? 'Volviendo al despacho' : 'Volviendo a su mesa';
     });
     M.phase = 'return';
-  } else if (M.phase === 'return' && M.members.every(a => a.state === 'seat')) {
+  } else if (M.phase === 'return' && M.members.every(a => a.state === 'seat' || a.state === 'panic')) {
     S.meeting = null; S.nextMeeting = S.simT + MEET_EVERY;
+  }
+}
+function stepRoute(a, step) {
+  while (step > 0 && a.route.length) {
+    const tg = a.route[0], dx = tg.x - a.x, dy = tg.y - a.y, d = Math.hypot(dx, dy);
+    if (d > 0.001) a.toward = dx + dy > 0;
+    if (d <= step) { a.x = tg.x; a.y = tg.y; a.route.shift(); step -= d; }
+    else { a.x += dx / d * step; a.y += dy / d * step; step = 0; }
   }
 }
 function moveAgents(dt) {
   for (const a of [...agents, BOSS]) {
     if (a.state !== 'walk') continue;
-    let step = 3 * dt;
-    while (step > 0 && a.route.length) {
-      const tg = a.route[0], dx = tg.x - a.x, dy = tg.y - a.y, d = Math.hypot(dx, dy);
-      if (d > 0.001) a.toward = dx + dy > 0;
-      if (d <= step) { a.x = tg.x; a.y = tg.y; a.route.shift(); step -= d; }
-      else { a.x += dx / d * step; a.y += dy / d * step; step = 0; }
-    }
+    stepRoute(a, 3 * dt);
     if (!a.route.length) { a.state = a.returning ? 'seat' : 'meet'; a.task = ''; }
   }
+}
+
+// ---------- pánico: un trader que va perdiendo deja su mesa y corre por la sala echando humo
+const PANIC_LINES = ['¡Nooo!', '¡Vuelve, oro!', '¡Mi stop!', '¡Esto no estaba en el backtest!', '¡Socorro!', '¡Aguanta, aguanta!'];
+const losingE = e => e && e.pos && engPnl(e) < -e.pos.lots * OZ * 1.0;  // más de $1 por onza en contra
+const calmE = e => !e || !e.pos || engPnl(e) > -e.pos.lots * OZ * 0.5;
+// sale de la sala de estrategias y corre por el pasillo de la planta abierta y por el pasillo central
+const panicLane = () => ({ x: rnd(0.6, 13.6), y: rnd(5.4, 6.2) });
+function panicLeg(a) {
+  if (a.y > 6.6) return [{ x: 9.7, y: 5.8 }, panicLane()];
+  return Math.random() < 0.35 ? [{ x: 9.7, y: 5.8 }, { x: 9.7, y: rnd(8, 13.2) }] : [panicLane()];
+}
+function updatePanic(dt) {
+  for (const a of agentsOf('gld')) {
+    const e = G.eng.find(x => x.id === a.engine);
+    a.smoke = losingE(e) || (a.smoke && !calmE(e));
+    if (a.state === 'seat' && losingE(e)) {
+      a.state = 'panic'; a.route = [{ x: a.x, y: 4.4 }, { x: 10, y: 4.4 }, { x: 10, y: 5.6 }];
+      log('gld', `${a.name} (${engLabel(e.id)}): ¡pánico! la posición pierde ${usd(engPnl(e))}`);
+      say(a, pick(PANIC_LINES), 2);
+    } else if (a.state === 'panic') {
+      if (calmE(e)) {
+        a.route = a.y < 5 ? [{ x: a.home.x, y: 4.4 }, { x: a.home.x, y: a.home.y }]
+          : [...(a.y > 6.6 ? [{ x: 9.7, y: 5.8 }] : []), { x: 10, y: 5.6 }, { x: 10, y: 4.4 }, { x: a.home.x, y: 4.4 }, { x: a.home.x, y: a.home.y }];
+        a.returning = true; a.state = 'walk'; a.task = 'Volviendo a su mesa'; say(a, 'Uf… ya está', 1.8);
+        continue;
+      }
+      if (!a.route.length) a.route = panicLeg(a);
+      stepRoute(a, 4.5 * dt);
+      if (!(a.bubble && a.bubble.until > S.simT) && Math.random() < dt * 0.5) say(a, pick(PANIC_LINES), 1.8);
+    }
+  }
+  BOSS.smoke = dayDD() < -0.001;  // carlus también echa humo si el día va en negativo
 }
 
 function advance(dt) {
   S.simT += dt;
   while (S.simT >= S.nextTick) { tick(); S.nextTick += TICK; }
   moveAgents(dt);
+  updatePanic(dt);
   if (!S.meeting && S.simT >= S.nextMeeting) convene(false);
   updateMeeting();
 }
@@ -977,9 +1013,9 @@ const FURN = [
   } },
 ];
 function agentScreen(a) { return iso(a.x, a.y); }
-const keyOf = a => a.state === 'meet' ? a.seat.key : a.state === 'seat' && a.home.key != null ? a.home.key : a.x + a.y;
+const keyOf = a => a.state === 'panic' ? a.x + a.y : a.state === 'meet' ? a.seat.key : a.state === 'seat' && a.home.key != null ? a.home.key : a.x + a.y;
 function faceVisible(a) {
-  if (a.state === 'walk') return !!a.toward;
+  if (a.state === 'walk' || a.state === 'panic') return !!a.toward;
   const f = a.state === 'meet' ? a.seat.facing : a === BOSS ? 'n' : a.home.facing || 's';
   return f === 'n' || f === 'w';
 }
@@ -991,19 +1027,24 @@ function ring(a, x, y) {
   ctx.beginPath(); ctx.ellipse(x, y, 15, 7.5, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
 }
 function drawPerson(a, t) {
-  const [x, y] = iso(a.x, a.y), walking = a.state === 'walk', boss = a === BOSS, face = faceVisible(a);
-  const bob = reduceMotion ? 0 : walking ? Math.abs(Math.sin(t * 9 + a.phase)) * 1.6 : Math.sin(t * 1.6 + a.phase) * 0.6;
+  const [x, y] = iso(a.x, a.y), panic = a.state === 'panic', walking = a.state === 'walk' || panic, boss = a === BOSS, face = faceVisible(a);
+  const fr = panic ? 18 : 9, bob = reduceMotion ? 0 : walking ? Math.abs(Math.sin(t * fr + a.phase)) * (panic ? 2.6 : 1.6) : Math.sin(t * 1.6 + a.phase) * 0.6;
   ring(a, x, y);
   if (walking) {
     ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(x, y, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
-    const sw = reduceMotion ? 0 : Math.sin(t * 9 + a.phase) * 3;
+    const sw = reduceMotion ? 0 : Math.sin(t * fr + a.phase) * (panic ? 4.5 : 3);
     ctx.fillStyle = boss ? '#18213a' : '#2a3038'; ctx.fillRect(x - 4 + sw * 0.4, y - 11, 3, 11); ctx.fillRect(x + 1 - sw * 0.4, y - 11, 3, 11);
     ctx.fillStyle = '#111'; ctx.fillRect(x - 4.5 + sw * 0.4, y - 1.5, 4, 2); ctx.fillRect(x + 0.5 - sw * 0.4, y - 1.5, 4, 2);
   }
   const base = walking ? y - 10 : y - 9, top = base - 17 - bob, body = boss ? '#1f2b45' : DEPTS[a.dept].color;
   const g = ctx.createLinearGradient(x - 7, 0, x + 7, 0); g.addColorStop(0, shade(body, 1.15)); g.addColorStop(1, shade(body, 0.75));
   ctx.fillStyle = g; rr(x - 6.5, top, 13, 17, 4); ctx.fill();
-  ctx.fillStyle = shade(body, 0.65); rr(x - 8.5, top + 2, 2.5, 11, 1.2); ctx.fill(); rr(x + 6, top + 2, 2.5, 11, 1.2); ctx.fill();
+  ctx.fillStyle = shade(body, 0.65);
+  if (panic) { // brazos arriba, agitándose
+    const w = reduceMotion ? 0 : Math.sin(t * 22 + a.phase) * 2;
+    rr(x - 9.5 + w, top - 9, 2.5, 12, 1.2); ctx.fill(); rr(x + 7 - w, top - 9, 2.5, 12, 1.2); ctx.fill();
+    ctx.fillStyle = a.skin; ctx.beginPath(); ctx.arc(x - 8.2 + w, top - 10, 1.8, 0, Math.PI * 2); ctx.arc(x + 8.2 - w, top - 10, 1.8, 0, Math.PI * 2); ctx.fill();
+  } else { rr(x - 8.5, top + 2, 2.5, 11, 1.2); ctx.fill(); rr(x + 6, top + 2, 2.5, 11, 1.2); ctx.fill(); }
   if (face) {
     if (boss) { poly([[x - 3.5, top], [x + 3.5, top], [x, top + 5]], '#f2f2ee'); ctx.fillStyle = '#d3a332'; ctx.fillRect(x - 0.9, top + 2.5, 1.8, 8); }
     else poly([[x - 2.5, top], [x + 2.5, top], [x, top + 3.5]], a.skin);
@@ -1013,13 +1054,27 @@ function drawPerson(a, t) {
   if (face) ctx.arc(x, top - 6.2, 5.8, Math.PI * 1.05, Math.PI * 1.95); else ctx.arc(x, top - 5.4, 5.7, 0, Math.PI * 2);
   ctx.fill();
   a._hit = [x - 9, top - 12, 18, y - top + 14];
+  a._head = [x, top - 11];
+  if (panic && face) { ctx.fillStyle = '#7fc8ff'; ctx.beginPath(); ctx.arc(x + 4.5, top - 7, 1.2, 0, Math.PI * 2); ctx.fill(); } // gota de sudor
+}
+function drawSmoke(a, t) {
+  if (!a.smoke || !a._head) return;
+  const [hx, hy] = a._head;
+  ctx.save();
+  for (let k = 0; k < 9; k++) {
+    const ph = reduceMotion ? k / 9 : (t * 1.1 + k / 9 + a.phase) % 1;
+    const px0 = hx + Math.sin(ph * 6 + k * 2.1) * (2 + ph * 7), py0 = hy - ph * 34, r = 3 + ph * 8;
+    ctx.globalAlpha = (1 - ph) * 0.85; ctx.fillStyle = ph < 0.3 ? '#4a4e51' : '#8d9295';
+    ctx.beginPath(); ctx.arc(px0, py0, r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
 }
 function engColor(e) { return e.pos ? (engPnl(e) >= 0 ? '#57d29b' : '#f1716a') : e.pend ? '#f2c94c' : '#8b968f'; }
 function drawTag(a) {
   if (a !== BOSS && !a.engine) return;
   if (a.bubble && a.bubble.until >= S.simT && a.bubble.born <= S.simT) return;
   const [x, y] = agentScreen(a), text = a === BOSS ? 'carlus' : engLabel(a.engine), dot = a.engine ? engColor(G.eng.find(e => e.id === a.engine)) : null;
-  const ty = y - (a.state === 'walk' ? 53 : 51);
+  const ty = y - (a.state === 'walk' || a.state === 'panic' ? 53 : 51) - (a.smoke ? 34 : 0);
   ctx.save(); ctx.font = '700 8px "JetBrains Mono", monospace';
   const w = ctx.measureText(text).width + (dot ? 18 : 10), x0 = x - w / 2;
   ctx.fillStyle = 'rgba(14,18,19,.88)'; rr(x0, ty, w, 12, 6); ctx.fill();
@@ -1032,7 +1087,7 @@ function drawBubble(a) {
   const [x, y] = agentScreen(a), age = S.simT - a.bubble.born, left = a.bubble.until - S.simT;
   const alpha = Math.min(1, age * 4, left * 2);
   ctx.save(); ctx.globalAlpha = alpha; ctx.font = '600 10px "JetBrains Mono", monospace';
-  const off = a === BOSS ? 76 : a.state === 'walk' ? 70 : 62;
+  const off = (a === BOSS ? 76 : a.state === 'walk' || a.state === 'panic' ? 70 : 62) + (a.smoke ? 32 : 0);
   const tw = ctx.measureText(a.bubble.text).width + 12, bx = Math.max(4, Math.min(W - tw - 4, x - tw / 2)), by = y - off;
   ctx.fillStyle = '#ffffff'; ctx.strokeStyle = DEPTS[a.dept] ? DEPTS[a.dept].color : '#d3a332'; ctx.lineWidth = 1.2;
   rr(bx, by, tw, 18, 5); ctx.fill(); ctx.stroke();
@@ -1069,6 +1124,7 @@ function render(t) {
   const vg = ctx.createRadialGradient(W / 2, H * 0.55, 280, W / 2, H * 0.55, 760);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  people.forEach(a => drawSmoke(a, t));
   people.forEach(drawTag);
   people.forEach(drawBubble);
   if (hover) drawTooltip(hover);
@@ -1115,7 +1171,7 @@ function statusOf(a) {
   if (a.state === 'meet') return 'En la sala de reuniones';
   const P = lastH4(), open = G.eng.filter(e => e.pos).length, pend = G.eng.filter(e => e.pend).length;
   switch (a.dept) {
-    case 'gld': { const e = G.eng.find(x => x.id === a.engine); return e.pos ? `${e.pos.dir > 0 ? 'Largo' : 'Corto'} ${e.pos.lots.toFixed(2)} lt` : e.pend ? 'Órdenes pendientes' : e.note || 'Esperando vela'; }
+    case 'gld': { const e = G.eng.find(x => x.id === a.engine); if (a.state === 'panic') return `¡Pánico! ${usd(engPnl(e))}`; return e.pos ? `${e.pos.dir > 0 ? 'Largo' : 'Corto'} ${e.pos.lots.toFixed(2)} lt` : e.pend ? 'Órdenes pendientes' : e.note || 'Esperando vela'; }
     case 'niv': return pend ? `${pend} motor${pend > 1 ? 'es' : ''} con órdenes` : 'Esperando cierre de vela';
     case 'vel': return P ? `Última vela ${P.c < P.o ? 'bajista' : 'alcista'}` : 'Leyendo velas';
     case 'vol': return G.volRatio != null ? `Volumen ${G.volRatio.toFixed(2)}×` : 'Midiendo volumen';
